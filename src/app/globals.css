@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-surface-bright/80 backdrop-blur-xl border border-surface-variant shadow-lg;
+  }
+}
+
+body {
+  background-color: theme('colors.surface.DEFAULT');
+  color: theme('colors.on-surface.DEFAULT');
+}

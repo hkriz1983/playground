@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Note {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id") // Links to Playground User Master
+  title        String
+  content      String?
+  category     String?   @default("General") // e.g., Work, Personal, Quick
+  reminderAt   DateTime? @map("reminder_at") // NULL if pure note
+  isCompleted  Boolean?  @default(false) @map("is_completed") // For reminder status
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId, reminderAt, isCompleted])
+  @@map("notes")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  password    String
+  role        String   @default("USER")
+  designation String?
+  avatar      String?
+  avatarColor String   @default("primary")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  appAccess   UserAppAccess[]
+
+  @@map("users")
+}
+
+model App {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  icon        String
+  color       String   @default("primary")
+  appLink     String?
+  github      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  userAccess  UserAppAccess[]
+
+  @@map("apps")
+}
+
+model UserAppAccess {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  appId     String   @map("app_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, appId])
+  @@map("user_app_access")
+}
