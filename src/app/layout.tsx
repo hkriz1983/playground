@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { Inter, Hanken_Grotesk } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 
 import PlaygroundShellNav from "@/components/PlaygroundShellNav";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const hanken = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-hanken" });
+import { Poppins } from "next/font/google";
+
+const poppins = Poppins({ 
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  subsets: ["latin"], 
+  variable: "--font-poppins" 
+});
 
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
@@ -29,7 +33,7 @@ export default function RootLayout({
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
       </head>
-      <body className={`${inter.variable} ${hanken.variable} ${geistMono.variable} font-body bg-surface text-on-surface min-h-screen flex flex-col`}>
+      <body className={`${poppins.variable} ${geistMono.variable} font-body bg-surface text-on-surface min-h-screen flex flex-col`}>
         <PlaygroundShellNav>
           {children}
         </PlaygroundShellNav>

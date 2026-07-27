@@ -81,8 +81,8 @@ const config: Config = {
         neutral: '#0f172a',
       },
       fontFamily: {
-        display: ['var(--font-hanken)', 'sans-serif'],
-        body: ['var(--font-inter)', 'sans-serif'],
+        display: ['var(--font-poppins)', 'sans-serif'],
+        body: ['var(--font-poppins)', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'monospace'],
       },
     },

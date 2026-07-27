@@ -28,7 +28,7 @@ export default function UserMaster() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<{ name: string, email: string, password?: string, role: string, designation: string, avatarColor: string, appIds: string[] }>({ name: '', email: '', password: '', role: 'USER', designation: '', avatarColor: 'primary', appIds: [] });
+  const [formData, setFormData] = useState<{ name: string, email: string, password?: string, role: string, designation: string, avatar: string, avatarColor: string, appIds: string[] }>({ name: '', email: '', password: '', role: 'USER', designation: '', avatar: '', avatarColor: 'primary', appIds: [] });
   
   const [availableApps, setAvailableApps] = useState<AppData[]>([]);
 
@@ -113,8 +113,9 @@ export default function UserMaster() {
         setIsModalOpen(false);
         setIsEditing(false);
         setEditingId(null);
-        setFormData({ name: '', email: '', password: '', role: 'USER', designation: '', avatarColor: 'primary', appIds: [] });
+        setFormData({ name: '', email: '', password: '', role: 'USER', designation: '', avatar: '', avatarColor: 'primary', appIds: [] });
         fetchUsers();
+        window.dispatchEvent(new Event('user-updated'));
       }
     } catch (err) {
       console.error('Failed to save user', err);
@@ -124,7 +125,7 @@ export default function UserMaster() {
   const openAddModal = () => {
     setIsEditing(false);
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: 'USER', designation: '', avatarColor: 'primary', appIds: [] });
+    setFormData({ name: '', email: '', password: '', role: 'USER', designation: '', avatar: '', avatarColor: 'primary', appIds: [] });
     setIsModalOpen(true);
   };
 
@@ -140,6 +141,7 @@ export default function UserMaster() {
       password: '', // Blank for security
       role: user.role, 
       designation: user.designation || '', 
+      avatar: user.avatar || '',
       avatarColor: user.avatarColor,
       appIds: userAppIds
     });
@@ -315,6 +317,42 @@ export default function UserMaster() {
                   className="w-full bg-surface-dim border border-outline-variant rounded-lg px-4 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
                   placeholder="e.g. Software Engineer"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-outline uppercase mb-2">Profile Picture</label>
+                <div className="flex flex-col gap-3">
+                  <input 
+                    type="text" 
+                    value={formData.avatar}
+                    onChange={e => setFormData({...formData, avatar: e.target.value})}
+                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-4 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                    placeholder="e.g. https://example.com/avatar.png (or upload below)"
+                  />
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setFormData({ ...formData, avatar: reader.result as string });
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="w-full text-sm text-outline file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                      />
+                    </div>
+                    {formData.avatar && (
+                      <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-outline-variant">
+                        <img src={formData.avatar} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

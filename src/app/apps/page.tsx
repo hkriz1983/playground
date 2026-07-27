@@ -18,6 +18,8 @@ export default function AppMaster() {
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ 
     name: '', description: '', icon: 'apps', color: 'primary', appLink: '', github: '' 
   });
@@ -50,22 +52,47 @@ export default function AppMaster() {
     }
   };
 
-  const handleRegisterApp = async (e: React.FormEvent) => {
+  const handleSaveApp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/apps', {
-        method: 'POST',
+      const url = isEditing ? `/api/apps/${editingId}` : '/api/apps';
+      const method = isEditing ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
       if (res.ok) {
         setIsModalOpen(false);
+        setIsEditing(false);
+        setEditingId(null);
         setFormData({ name: '', description: '', icon: 'apps', color: 'primary', appLink: '', github: '' });
         fetchApps();
       }
     } catch (err) {
-      console.error('Failed to create app', err);
+      console.error('Failed to save app', err);
     }
+  };
+
+  const openAddModal = () => {
+    setIsEditing(false);
+    setEditingId(null);
+    setFormData({ name: '', description: '', icon: 'apps', color: 'primary', appLink: '', github: '' });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (mod: Module) => {
+    setIsEditing(true);
+    setEditingId(mod.id);
+    setFormData({ 
+      name: mod.name, 
+      description: mod.description, 
+      icon: mod.icon, 
+      color: mod.color, 
+      appLink: mod.appLink || '', 
+      github: mod.github || '' 
+    });
+    setIsModalOpen(true);
   };
 
   return (
@@ -82,7 +109,7 @@ export default function AppMaster() {
             <h2 className="font-display text-4xl font-bold tracking-tight text-on-surface">App Master</h2>
           </div>
           <div className="flex gap-4">
-            <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary text-on-primary px-6 py-3 rounded-xl font-bold transition-all hover:shadow-[0_0_20px_rgba(192,193,255,0.4)] active:scale-95">
+            <button onClick={openAddModal} className="flex items-center gap-2 bg-primary text-on-primary px-6 py-3 rounded-xl font-bold transition-all hover:shadow-[0_0_20px_rgba(192,193,255,0.4)] active:scale-95">
               <span className="material-symbols-outlined">add</span>
               <span>REGISTER NEW MODULE</span>
             </button>
@@ -112,8 +139,12 @@ export default function AppMaster() {
             </div>
           ) : modules.map((mod) => (
             <div key={mod.id} className="bg-surface-container/40 border border-outline-variant/50 backdrop-blur-xl p-4 rounded-xl flex items-center gap-6 group transition-all hover:-translate-y-0.5 hover:bg-surface-container/80 hover:border-primary/50 shadow-sm">
-              <div className={`w-14 h-14 rounded-lg bg-surface-container-highest flex items-center justify-center text-${mod.color} border border-outline-variant/50 shadow-inner`}>
-                <span className="material-symbols-outlined text-[32px]">{mod.icon}</span>
+              <div className={`w-14 h-14 rounded-lg bg-surface-container-highest flex items-center justify-center text-${mod.color} border border-outline-variant/50 shadow-inner overflow-hidden`}>
+                {mod.icon.startsWith('data:image') || mod.icon.startsWith('http') ? (
+                  <img src={mod.icon} alt={mod.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="material-symbols-outlined text-[32px]">{mod.icon}</span>
+                )}
               </div>
               
               <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -137,7 +168,7 @@ export default function AppMaster() {
               </div>
               
               <div className="flex items-center gap-4">
-                <button className="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant/50 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface transition-colors">
+                <button onClick={() => openEditModal(mod)} className="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant/50 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface transition-colors">
                   <span className="material-symbols-outlined text-[20px]">edit</span>
                 </button>
                 <button onClick={() => deleteApp(mod.id)} className="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant/50 hover:bg-error/20 text-on-surface-variant hover:text-error transition-colors">
@@ -157,12 +188,12 @@ export default function AppMaster() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
           <div className="bg-surface-container border border-outline-variant/50 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-outline-variant/50 flex justify-between items-center bg-surface-container-high/30">
-              <h3 className="font-display text-xl font-bold">Register New Module</h3>
+              <h3 className="font-display text-xl font-bold">{isEditing ? 'Edit Module' : 'Register New Module'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-on-surface-variant hover:text-on-surface">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <form onSubmit={handleRegisterApp} className="p-6 space-y-4">
+            <form onSubmit={handleSaveApp} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-mono text-outline uppercase mb-2">Module Name</label>
@@ -186,18 +217,44 @@ export default function AppMaster() {
                     placeholder="e.g. Instant container orchestration"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-mono text-outline uppercase mb-2">Icon (Material)</label>
-                  <input 
-                    required
-                    type="text" 
-                    value={formData.icon}
-                    onChange={e => setFormData({...formData, icon: e.target.value})}
-                    className="w-full bg-surface-dim border border-outline-variant rounded-lg px-4 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
-                    placeholder="e.g. apps"
-                  />
+                <div className="col-span-2">
+                  <label className="block text-xs font-mono text-outline uppercase mb-2">Module Logo / Icon</label>
+                  <div className="flex flex-col gap-3">
+                    <input 
+                      required
+                      type="text" 
+                      value={formData.icon}
+                      onChange={e => setFormData({...formData, icon: e.target.value})}
+                      className="w-full bg-surface-dim border border-outline-variant rounded-lg px-4 py-2 text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                      placeholder="Material icon name OR image URL (https://...)"
+                    />
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setFormData({ ...formData, icon: reader.result as string });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="w-full text-sm text-outline file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                        />
+                      </div>
+                      {(formData.icon.startsWith('data:image') || formData.icon.startsWith('http')) && (
+                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-outline-variant">
+                          <img src={formData.icon} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <label className="block text-xs font-mono text-outline uppercase mb-2">Theme Color</label>
                   <select 
                     value={formData.color}
@@ -236,7 +293,7 @@ export default function AppMaster() {
                   Cancel
                 </button>
                 <button type="submit" className="px-6 py-2 rounded-lg text-sm font-medium bg-primary text-on-primary hover:bg-primary-fixed transition-colors shadow-lg shadow-primary/20">
-                  Register App
+                  {isEditing ? 'Save Changes' : 'Register App'}
                 </button>
               </div>
             </form>

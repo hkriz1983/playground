@@ -20,7 +20,7 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
   const [user, setUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
-    if (pathname !== '/login') {
+    const fetchMe = () => {
       fetch('/api/auth/me')
         .then(res => {
           if (!res.ok) throw new Error('Not authenticated');
@@ -28,7 +28,20 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
         })
         .then(data => setUser(data))
         .catch(() => router.push('/login'));
+    };
+
+    if (pathname !== '/login') {
+      fetchMe();
     }
+
+    const handleUserUpdated = () => {
+      if (pathname !== '/login') {
+        fetchMe();
+      }
+    };
+
+    window.addEventListener('user-updated', handleUserUpdated);
+    return () => window.removeEventListener('user-updated', handleUserUpdated);
   }, [pathname, router]);
 
   const handleLogout = async () => {
