@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
-const getUserId = (req: NextRequest) => {
-  return req.headers.get('x-user-id') || 'mock-user-1234';
-};
+import { getUserId } from '@/lib/auth';
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {

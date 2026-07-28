@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
 
 export const getUserId = (req: NextRequest) => {
-  return req.headers.get('x-user-id') || 'mock-user-1234';
+  const cookieStore = cookies();
+  const authCookie = cookieStore.get('playground_auth');
+  return authCookie?.value || req.headers.get('x-user-id') || 'mock-user-1234';
 };

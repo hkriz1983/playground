@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserId } from '@/lib/auth';
 
-// Mock user ID getter (since middleware sets the header)
-const getUserId = (req: NextRequest) => {
-  return req.headers.get('x-user-id') || 'mock-user-1234';
-};
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
