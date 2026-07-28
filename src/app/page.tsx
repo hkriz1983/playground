@@ -28,7 +28,7 @@ export default function Launchpad() {
     <div className="relative">
       <div className="flex flex-col gap-8">
         {/* Header Section */}
-        <div className="flex items-end justify-between mb-4">
+        <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 gap-4">
           <div>
             <h2 className="font-display text-4xl font-bold tracking-tight text-on-surface mb-2">Welcome back</h2>
             <p className="text-on-surface-variant font-body text-sm">Select an application to launch from your designated workspace.</p>

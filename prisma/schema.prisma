@@ -70,3 +70,76 @@ model UserAppAccess {
   @@unique([userId, appId])
   @@map("user_app_access")
 }
+
+model LedgerCategory {
+  id          String   @id @default(uuid())
+  name        String
+  unitWord    String   @default("session")
+  isFixedRate Boolean  @default(true)
+  defaultRate Float    @default(0)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  entries     LedgerEntry[]
+
+  @@map("ledger_categories")
+}
+
+model LedgerEntry {
+  id          String   @id @default(uuid())
+  date        DateTime
+  amount      Float
+  description String?
+  categoryId  String   @map("category_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category    LedgerCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([categoryId])
+  @@map("ledger_entries")
+}
+
+model LedgerPayment {
+  id          String   @id @default(uuid())
+  date        DateTime
+  amount      Float
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([date])
+  @@map("ledger_payments")
+}
+
+model LedgerPlayer {
+  id          String   @id @default(uuid())
+  name        String
+  role        String   @default("Player")
+  phone       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  payments    PlayerPayment[]
+
+  @@map("ledger_players")
+}
+
+model PlayerPayment {
+  id          String   @id @default(uuid())
+  playerId    String   @map("player_id")
+  amount      Float
+  date        DateTime
+  againstWhat String
+  receiptUrl  String?  @map("receipt_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  player      LedgerPlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([playerId])
+  @@map("player_payments")
+}

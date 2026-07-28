@@ -155,7 +155,7 @@ export default function UserMaster() {
       
       <div className="flex flex-col gap-6">
         {/* Header Actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h2 className="font-display text-4xl font-bold text-on-surface tracking-tight mb-1">User Master</h2>
             <p className="font-body text-sm text-on-surface-variant">Manage playground users and their application access.</p>
@@ -354,7 +354,7 @@ export default function UserMaster() {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-mono text-outline uppercase mb-2">System Role</label>
                   <select 

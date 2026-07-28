@@ -103,7 +103,7 @@ export default function AppMaster() {
 
       <div className="flex flex-col gap-8 max-w-5xl">
         {/* Header Section */}
-        <div className="flex items-end justify-between mb-2">
+        <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-2 gap-4">
           <div>
             <p className="font-mono text-[12px] text-primary uppercase tracking-widest mb-1">Module Registry</p>
             <h2 className="font-display text-4xl font-bold tracking-tight text-on-surface">App Master</h2>
@@ -138,7 +138,7 @@ export default function AppMaster() {
               No apps registered. Click "Register New Module" to create one.
             </div>
           ) : modules.map((mod) => (
-            <div key={mod.id} className="bg-surface-container/40 border border-outline-variant/50 backdrop-blur-xl p-4 rounded-xl flex items-center gap-6 group transition-all hover:-translate-y-0.5 hover:bg-surface-container/80 hover:border-primary/50 shadow-sm">
+            <div key={mod.id} className="bg-surface-container/40 border border-outline-variant/50 backdrop-blur-xl p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 group transition-all hover:-translate-y-0.5 hover:bg-surface-container/80 hover:border-primary/50 shadow-sm">
               <div className={`w-14 h-14 rounded-lg bg-surface-container-highest flex items-center justify-center text-${mod.color} border border-outline-variant/50 shadow-inner overflow-hidden`}>
                 {mod.icon.startsWith('data:image') || mod.icon.startsWith('http') ? (
                   <img src={mod.icon} alt={mod.name} className="w-full h-full object-cover" />
@@ -194,7 +194,7 @@ export default function AppMaster() {
               </button>
             </div>
             <form onSubmit={handleSaveApp} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-mono text-outline uppercase mb-2">Module Name</label>
                   <input 

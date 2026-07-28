@@ -18,6 +18,7 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchMe = () => {
@@ -58,8 +59,16 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen bg-surface text-on-surface font-body overflow-hidden">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-20 md:hidden" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
       {/* Sidebar Navigation */}
-      <aside className="w-[280px] bg-surface-container/50 border-r border-outline-variant/50 backdrop-blur-xl flex flex-col z-20 shrink-0">
+      <aside className={`w-[280px] bg-surface-container/50 border-r border-outline-variant/50 backdrop-blur-xl flex flex-col z-30 shrink-0 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-200 ease-in-out`}>
         <div className="p-6">
           <h1 className="font-display text-2xl font-bold tracking-tight text-on-surface mb-1 flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">token</span>
@@ -122,8 +131,14 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-16 border-b border-outline-variant/30 flex items-center px-8 shrink-0 bg-surface/50 backdrop-blur-md z-10">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden w-full">
+        <header className="h-16 border-b border-outline-variant/30 flex items-center px-4 md:px-8 shrink-0 bg-surface/50 backdrop-blur-md z-10 w-full">
+          <button 
+            className="md:hidden mr-4 text-on-surface-variant hover:text-on-surface transition-colors flex items-center"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <span className="material-symbols-outlined">menu</span>
+          </button>
           <div className="flex-1"></div>
           <div className="flex items-center gap-4 text-on-surface-variant">
             <button className="hover:text-primary transition-colors">
@@ -135,7 +150,7 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
             </button>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-8 relative">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative">
           {children}
         </div>
       </main>
