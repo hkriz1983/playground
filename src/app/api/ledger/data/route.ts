@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getUserId } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const { searchParams } = new URL(req.url);
     const month = searchParams.get('month'); // YYYY-MM
     
@@ -21,12 +23,14 @@ export async function GET(req: Request) {
 
     // Fetch categories
     const categories = await prisma.ledgerCategory.findMany({
+      where: { userId },
       orderBy: { order: 'asc' }
     });
 
     // Fetch entries for the month
     const entries = await prisma.ledgerEntry.findMany({
       where: {
+        userId,
         date: {
           gte: startOfMonth,
           lte: endOfMonth
@@ -38,6 +42,7 @@ export async function GET(req: Request) {
     // Fetch payments for the month
     const payments = await prisma.ledgerPayment.findMany({
       where: {
+        userId,
         date: {
           gte: startOfMonth,
           lte: endOfMonth
@@ -49,13 +54,13 @@ export async function GET(req: Request) {
     // Compute Opening Balance
     // Sum of all payments before startOfMonth
     const pastPayments = await prisma.ledgerPayment.aggregate({
-      where: { date: { lt: startOfMonth } },
+      where: { userId, date: { lt: startOfMonth } },
       _sum: { amount: true }
     });
 
     // Sum of all entries before startOfMonth
     const pastEntries = await prisma.ledgerEntry.aggregate({
-      where: { date: { lt: startOfMonth } },
+      where: { userId, date: { lt: startOfMonth } },
       _sum: { amount: true }
     });
 
@@ -68,6 +73,7 @@ export async function GET(req: Request) {
     // Fetch player payments for the month
     const playerPayments = await prisma.playerPayment.findMany({
       where: {
+        userId,
         date: {
           gte: startOfMonth,
           lte: endOfMonth

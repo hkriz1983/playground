@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getUserId } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const players = await prisma.ledgerPlayer.findMany({
+      where: { userId },
       orderBy: { name: 'asc' }
     });
     return NextResponse.json(players);
@@ -15,10 +18,13 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const data = await req.json();
-    const newPlayer = await prisma.ledgerPlayer.create({ data });
+    const newPlayer = await prisma.ledgerPlayer.create({ 
+      data: { ...data, userId } 
+    });
     return NextResponse.json(newPlayer);
   } catch (error) {
     console.error(error);
@@ -26,11 +32,18 @@ export async function POST(req: Request) {
   }
 }
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const { id, ...data } = await req.json();
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     
+    // Check ownership
+    const existing = await prisma.ledgerPlayer.findUnique({ where: { id } });
+    if (!existing || existing.userId !== userId) {
+      return NextResponse.json({ error: 'Not found or forbidden' }, { status: 403 });
+    }
+
     const updated = await prisma.ledgerPlayer.update({
       where: { id },
       data
@@ -42,11 +55,17 @@ export async function PUT(req: Request) {
   }
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+
+    const existing = await prisma.ledgerPlayer.findUnique({ where: { id } });
+    if (!existing || existing.userId !== userId) {
+      return NextResponse.json({ error: 'Not found or forbidden' }, { status: 403 });
+    }
 
     await prisma.ledgerPlayer.delete({ where: { id } });
     return NextResponse.json({ success: true });

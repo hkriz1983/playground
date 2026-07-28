@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getUserId } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const data = await req.json();
     const entry = await prisma.ledgerEntry.create({
       data: {
+        userId,
         date: new Date(data.date),
         amount: data.amount,
         categoryId: data.categoryId,
@@ -21,11 +24,17 @@ export async function POST(req: Request) {
   }
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+
+    const existing = await prisma.ledgerEntry.findUnique({ where: { id } });
+    if (!existing || existing.userId !== userId) {
+      return NextResponse.json({ error: 'Not found or forbidden' }, { status: 403 });
+    }
 
     await prisma.ledgerEntry.delete({ where: { id } });
     return NextResponse.json({ success: true });

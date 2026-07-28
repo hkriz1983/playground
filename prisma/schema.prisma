@@ -73,6 +73,7 @@ model UserAppAccess {
 
 model LedgerCategory {
   id          String   @id @default(uuid())
+  userId      String   @default("mock-user-1234") @map("user_id")
   name        String
   unitWord    String   @default("session")
   isFixedRate Boolean  @default(true)
@@ -88,6 +89,7 @@ model LedgerCategory {
 
 model LedgerEntry {
   id          String   @id @default(uuid())
+  userId      String   @default("mock-user-1234") @map("user_id")
   date        DateTime
   amount      Float
   description String?
@@ -104,6 +106,7 @@ model LedgerEntry {
 
 model LedgerPayment {
   id          String   @id @default(uuid())
+  userId      String   @default("mock-user-1234") @map("user_id")
   date        DateTime
   amount      Float
   description String?
@@ -116,6 +119,7 @@ model LedgerPayment {
 
 model LedgerPlayer {
   id          String   @id @default(uuid())
+  userId      String   @default("mock-user-1234") @map("user_id")
   name        String
   role        String   @default("Player")
   phone       String?
@@ -129,6 +133,7 @@ model LedgerPlayer {
 
 model PlayerPayment {
   id          String   @id @default(uuid())
+  userId      String   @default("mock-user-1234") @map("user_id")
   playerId    String   @map("player_id")
   amount      Float
   date        DateTime
