@@ -24,10 +24,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Account is inactive' }, { status: 403 });
     }
 
+    const isHttps = req.headers.get('x-forwarded-proto') === 'https' || req.url.startsWith('https://');
+
     const response = NextResponse.json({ success: true, userId: user.id });
     response.cookies.set('playground_auth', user.id, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       path: '/',
       maxAge: 60 * 60 * 24 * 7 // 1 week
     });
