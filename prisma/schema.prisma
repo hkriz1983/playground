@@ -8,18 +8,36 @@ datasource db {
 }
 
 model Note {
-  id           String    @id @default(uuid())
-  userId       String    @map("user_id") // Links to Playground User Master
+  id           String      @id @default(uuid())
+  userId       String      @map("user_id") // Links to Playground User Master
   title        String
   content      String?
-  category     String?   @default("General") // e.g., Work, Personal, Quick
-  reminderAt   DateTime? @map("reminder_at") // NULL if pure note
-  isCompleted  Boolean?  @default(false) @map("is_completed") // For reminder status
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  category     String?     @default("General") // e.g., Work, Personal, Quick
+  taskHeaderId String?     @map("task_header_id")
+  reminderAt   DateTime?   @map("reminder_at") // NULL if pure note
+  isCompleted  Boolean?    @default(false) @map("is_completed") // For reminder status
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  taskHeader   TaskHeader? @relation(fields: [taskHeaderId], references: [id], onDelete: SetNull)
 
   @@index([userId, reminderAt, isCompleted])
+  @@index([taskHeaderId])
   @@map("notes")
+}
+
+model TaskHeader {
+  id        String   @id @default(uuid())
+  userId    String   @default("mock-user-1234") @map("user_id")
+  name      String
+  color     String?  @default("primary")
+  icon      String?  @default("folder")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  notes     Note[]
+
+  @@map("task_headers")
 }
 
 model User {

@@ -21,6 +21,9 @@ export async function GET(req: NextRequest) {
 
     const notes = await prisma.note.findMany({
       where: whereClause,
+      include: {
+        taskHeader: true,
+      },
       orderBy: filter === 'reminders' ? { reminderAt: 'asc' } : { createdAt: 'desc' },
     });
 
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
   try {
     const userId = getUserId(req);
     const body = await req.json();
-    const { title, content, category, reminderAt } = body;
+    const { title, content, category, taskHeaderId, reminderAt } = body;
 
     if (!title) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -47,7 +50,11 @@ export async function POST(req: NextRequest) {
         title,
         content,
         category: category || 'General',
+        taskHeaderId: taskHeaderId || null,
         reminderAt: reminderAt ? new Date(reminderAt) : null,
+      },
+      include: {
+        taskHeader: true,
       },
     });
 

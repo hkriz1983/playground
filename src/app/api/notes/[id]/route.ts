@@ -13,7 +13,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 404 });
     }
 
-    const { title, content, category, reminderAt, isCompleted } = body;
+    const { title, content, category, taskHeaderId, reminderAt, isCompleted } = body;
 
     const note = await prisma.note.update({
       where: { id: params.id },
@@ -21,8 +21,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         title: title !== undefined ? title : existing.title,
         content: content !== undefined ? content : existing.content,
         category: category !== undefined ? category : existing.category,
+        taskHeaderId: taskHeaderId !== undefined ? (taskHeaderId || null) : existing.taskHeaderId,
         reminderAt: reminderAt !== undefined ? (reminderAt ? new Date(reminderAt) : null) : existing.reminderAt,
         isCompleted: isCompleted !== undefined ? isCompleted : existing.isCompleted,
+      },
+      include: {
+        taskHeader: true,
       },
     });
 
