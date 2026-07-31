@@ -1,14 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getUserId } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const userId = getUserId(req);
     const { id } = params;
 
-    const bill = await prisma.splittzyBill.findUnique({
-      where: { id },
+    const bill = await prisma.splittzyBill.findFirst({
+      where: { id, userId },
       include: {
         participants: {
           include: {
@@ -29,11 +31,20 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const userId = getUserId(req);
     const { id } = params;
     const body = await req.json();
     const { action } = body;
+
+    const existingBill = await prisma.splittzyBill.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existingBill) {
+      return NextResponse.json({ error: 'Bill not found' }, { status: 404 });
+    }
 
     // Action 1: Settle or toggle participant payment status
     if (action === 'settle_participant') {
@@ -119,7 +130,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json(updatedBill);
     }
 
-    // Action 4: Edit full bill details
+    // Action 6: Edit full bill details
     const { title, totalAmount, date } = body;
     const updated = await prisma.splittzyBill.update({
       where: { id },
@@ -137,9 +148,19 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const userId = getUserId(req);
     const { id } = params;
+
+    const existingBill = await prisma.splittzyBill.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existingBill) {
+      return NextResponse.json({ error: 'Bill not found' }, { status: 404 });
+    }
+
     await prisma.splittzyBill.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {

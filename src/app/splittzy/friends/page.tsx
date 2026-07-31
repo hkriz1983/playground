@@ -172,57 +172,80 @@ export default function FriendsMasterPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {friends.map((friend) => (
-            <div
-              key={friend.id}
-              className="bg-surface-container/50 border border-outline-variant/50 rounded-2xl p-5 backdrop-blur-xl flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-200 shadow-sm"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-lg overflow-hidden shrink-0">
-                  {friend.avatar ? (
-                    <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
-                  ) : (
-                    friend.name.charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <h3 className="font-display font-semibold text-base text-on-surface truncate">{friend.name}</h3>
-                  <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-mono bg-surface-variant text-emerald-400 font-semibold mb-2">
-                    @{friend.nickname}
-                  </span>
-                  {friend.phone && (
-                    <p className="text-xs font-mono text-on-surface-variant flex items-center gap-1.5 truncate">
-                      <span className="material-symbols-outlined text-[14px] text-outline">call</span>
-                      {friend.phone}
-                    </p>
-                  )}
-                  {friend.upiId && (
-                    <p className="text-xs font-mono text-emerald-400/90 flex items-center gap-1.5 truncate mt-1">
-                      <span className="material-symbols-outlined text-[14px]">account_balance_wallet</span>
-                      {friend.upiId}
-                    </p>
-                  )}
-                </div>
-              </div>
+          {friends.map((friend) => {
+            const isSelf = friend.nickname === 'Myself';
 
-              <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-outline-variant/30">
-                <button
-                  onClick={() => openEditModal(friend)}
-                  className="p-2 hover:bg-surface-variant text-on-surface-variant hover:text-emerald-400 rounded-lg transition-colors"
-                  title="Edit Friend"
-                >
-                  <span className="material-symbols-outlined text-[18px]">edit</span>
-                </button>
-                <button
-                  onClick={() => handleDelete(friend.id, friend.name)}
-                  className="p-2 hover:bg-rose-500/10 text-outline hover:text-rose-400 rounded-lg transition-colors"
-                  title="Delete Friend"
-                >
-                  <span className="material-symbols-outlined text-[18px]">delete</span>
-                </button>
+            return (
+              <div
+                key={friend.id}
+                className={`bg-surface-container/50 border rounded-2xl p-5 backdrop-blur-xl flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-200 shadow-sm ${
+                  isSelf ? 'border-blue-500/30 bg-blue-950/10' : 'border-outline-variant/50'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-lg overflow-hidden shrink-0">
+                    {friend.avatar ? (
+                      <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
+                    ) : (
+                      friend.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <h3 className="font-display font-semibold text-base text-on-surface truncate">{friend.name}</h3>
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                      <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-mono bg-surface-variant text-emerald-400 font-semibold">
+                        @{friend.nickname}
+                      </span>
+                      {isSelf && (
+                        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                          Me (Default)
+                        </span>
+                      )}
+                    </div>
+                    {friend.phone && (
+                      <p className="text-xs font-mono text-on-surface-variant flex items-center gap-1.5 truncate">
+                        <span className="material-symbols-outlined text-[14px] text-outline">call</span>
+                        {friend.phone}
+                      </p>
+                    )}
+                    {friend.upiId && (
+                      <p className="text-xs font-mono text-emerald-400/90 flex items-center gap-1.5 truncate mt-1">
+                        <span className="material-symbols-outlined text-[14px]">account_balance_wallet</span>
+                        {friend.upiId}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-outline-variant/30">
+                  <button
+                    onClick={() => openEditModal(friend)}
+                    className="p-2 hover:bg-surface-variant text-on-surface-variant hover:text-emerald-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold"
+                    title="Edit Friend"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                    Edit
+                  </button>
+                  {isSelf ? (
+                    <span
+                      className="p-2 text-outline/50 cursor-not-allowed flex items-center gap-1 text-xs"
+                      title="Myself card cannot be deleted"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">lock</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleDelete(friend.id, friend.name)}
+                      className="p-2 hover:bg-rose-500/10 text-outline hover:text-rose-400 rounded-lg transition-colors"
+                      title="Delete Friend"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, Prisma } from '@prisma/client';
+import { getUserId } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const { searchParams } = new URL(req.url);
     const sort = searchParams.get('sort') || 'date_desc';
 
@@ -14,6 +16,7 @@ export async function GET(req: Request) {
     if (sort === 'amount_asc') orderBy = { totalAmount: 'asc' };
 
     const bills = await prisma.splittzyBill.findMany({
+      where: { userId },
       orderBy,
       include: {
         participants: {
@@ -61,8 +64,9 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const userId = getUserId(req);
     const body = await req.json();
     const { title, date, totalAmount, splitMode, billPhotos, participants } = body;
 
@@ -103,6 +107,7 @@ export async function POST(req: Request) {
 
     const newBill = await prisma.splittzyBill.create({
       data: {
+        userId,
         title,
         date: date ? new Date(date) : new Date(),
         totalAmount: numericTotal,

@@ -22,9 +22,9 @@ export async function GET(req: Request, { params }: { params: { shareCode: strin
       return NextResponse.json({ error: 'Bill link not found or invalid' }, { status: 404 });
     }
 
-    // Owner details (mock or system user)
-    const owner = await prisma.user.findFirst({
-      where: { role: 'ADMIN' },
+    // Owner details of the bill creator
+    const owner = await prisma.user.findUnique({
+      where: { id: bill.userId },
       select: { name: true, email: true },
     });
 
