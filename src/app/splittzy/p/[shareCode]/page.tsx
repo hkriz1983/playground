@@ -24,6 +24,8 @@ type PublicBill = {
   splitMode: string;
   billPhotos: string | null;
   shareCode: string;
+  isCancelled?: boolean;
+  cancellationReason?: string | null;
   participants: Participant[];
 };
 
@@ -185,14 +187,28 @@ export default function PublicParticipantPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsUploadModalOpen(true)}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
-        >
-          <span className="material-symbols-outlined text-sm">upload_file</span>
-          Upload Payment Proof
-        </button>
+        {!billData.isCancelled && (
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-sm">upload_file</span>
+            Upload Payment Proof
+          </button>
+        )}
       </div>
+
+      {billData.isCancelled && (
+        <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-2xl text-xs font-semibold flex items-center gap-3 animate-in fade-in shadow-md">
+          <span className="material-symbols-outlined text-2xl shrink-0">cancel</span>
+          <div>
+            <p className="font-bold text-sm">This bill has been cancelled by the creator.</p>
+            <p className="text-on-surface-variant font-normal mt-0.5">
+              Reason: &quot;<span className="italic font-medium text-on-surface">{billData.cancellationReason || 'No reason specified'}</span>&quot;
+            </p>
+          </div>
+        </div>
+      )}
 
       {successMsg && (
         <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">

@@ -28,6 +28,8 @@ type BillDetail = {
   splitMode: string;
   billPhotos: string | null; // JSON string array
   shareCode: string;
+  isCancelled?: boolean;
+  cancellationReason?: string | null;
   participants: Participant[];
 };
 
@@ -54,6 +56,11 @@ export default function OwnerBillDetailPage() {
   const [allFriends, setAllFriends] = useState<Friend[]>([]);
   const [selectedFriendId, setSelectedFriendId] = useState('');
   const [friendShareAmount, setFriendShareAmount] = useState('');
+
+  // Cancel bill modal state
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancellationReasonInput, setCancellationReasonInput] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!billId) return;
@@ -251,6 +258,58 @@ export default function OwnerBillDetailPage() {
     showToast('Public share link copied!');
   };
 
+  const handleConfirmCancel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bill || !cancellationReasonInput.trim()) return;
+
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/splittzy/bills/${bill.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cancel_bill',
+          cancellationReason: cancellationReasonInput.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        setIsCancelModalOpen(false);
+        setCancellationReasonInput('');
+        fetchBillDetail();
+        showToast('Bill cancelled successfully!');
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to cancel bill');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleUncancelBill = async () => {
+    if (!bill || !confirm('Are you sure you want to restore this bill?')) return;
+
+    try {
+      const res = await fetch(`/api/splittzy/bills/${bill.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'uncancel_bill',
+        }),
+      });
+
+      if (res.ok) {
+        fetchBillDetail();
+        showToast('Bill restored to active status!');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -295,7 +354,33 @@ export default function OwnerBillDetailPage() {
         </div>
       )}
 
-      {/* Top Header Bar (Matching Wireframe Screenshot 2) */}
+      {/* Cancelled Bill Banner */}
+      {bill.isCancelled && (
+        <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30 shrink-0">
+              <span className="material-symbols-outlined text-2xl">cancel</span>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-rose-400 flex items-center gap-2">
+                THIS BILL HAS BEEN CANCELLED
+              </h2>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Reason: &quot;<span className="italic font-medium text-on-surface">{bill.cancellationReason || 'No reason provided'}</span>&quot;
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleUncancelBill}
+            className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shrink-0"
+          >
+            <span className="material-symbols-outlined text-sm">restore</span>
+            Restore Bill
+          </button>
+        </div>
+      )}
+
+      {/* Top Header Bar */}
       <div className="bg-surface-container/60 backdrop-blur-xl border border-outline-variant/40 rounded-2xl p-4 md:p-6 shadow-lg flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6">
         {/* Left: Bill Name - Date */}
         <div className="flex items-center gap-3">
@@ -348,11 +433,11 @@ export default function OwnerBillDetailPage() {
           </div>
         </div>
 
-        {/* Right Actions: Add friends & Share Link */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Right Actions: Add friends & Share Link & Cancel */}
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <button
             onClick={openAddFriendModal}
-            className="px-4 py-2.5 bg-surface-variant hover:bg-surface-container-high border border-outline-variant/50 text-on-surface text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+            className="px-3.5 py-2.5 bg-surface-variant hover:bg-surface-container-high border border-outline-variant/50 text-on-surface text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
           >
             <span className="material-symbols-outlined text-[18px]">person_add</span>
             Add friends
@@ -360,11 +445,32 @@ export default function OwnerBillDetailPage() {
 
           <button
             onClick={handleCopyPublicLink}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
+            className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[18px]">share</span>
             Share Link
           </button>
+
+          {!bill.isCancelled ? (
+            <button
+              onClick={() => {
+                setCancellationReasonInput('');
+                setIsCancelModalOpen(true);
+              }}
+              className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[18px]">cancel</span>
+              Cancel Bill
+            </button>
+          ) : (
+            <button
+              onClick={handleUncancelBill}
+              className="px-3.5 py-2.5 bg-surface-variant hover:bg-surface-container-high border border-outline-variant/50 text-emerald-400 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[18px]">restore</span>
+              Restore Bill
+            </button>
+          )}
         </div>
       </div>
 
@@ -615,6 +721,60 @@ export default function OwnerBillDetailPage() {
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-md"
                 >
                   Add Participant
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cancel Bill with Reason */}
+      {isCancelModalOpen && bill && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container border border-outline-variant/60 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold font-display text-rose-400 flex items-center gap-2">
+                <span className="material-symbols-outlined">cancel</span>
+                Cancel Bill: {bill.title}
+              </h2>
+              <button onClick={() => setIsCancelModalOpen(false)} className="text-outline hover:text-on-surface">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCancel} className="space-y-4">
+              <p className="text-xs text-on-surface-variant">
+                Cancelling this bill will remove its amount from all total receivable, due, and net calculations on the dashboard, and move it to the <strong>Cancelled Bills</strong> section.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                  Reason for Cancellation *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="e.g. Duplicate entry, bill wrong amount, or party cancelled..."
+                  value={cancellationReasonInput}
+                  onChange={(e) => setCancellationReasonInput(e.target.value)}
+                  className="w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-outline-variant/40">
+                <button
+                  type="button"
+                  onClick={() => setIsCancelModalOpen(false)}
+                  className="px-4 py-2 bg-surface-variant text-on-surface text-sm font-semibold rounded-xl"
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancelling || !cancellationReasonInput.trim()}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm rounded-xl shadow-md disabled:opacity-50 transition-all flex items-center gap-1.5"
+                >
+                  {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
                 </button>
               </div>
             </form>

@@ -31,6 +31,9 @@ export async function GET(req: Request) {
     let totalDue = 0;
 
     bills.forEach((bill) => {
+      // Do not count cancelled bills in any calculation
+      if (bill.isCancelled) return;
+
       bill.participants.forEach((p) => {
         if (p.status !== 'PAID') {
           if (p.shareAmount > 0) {

@@ -23,6 +23,8 @@ type Bill = {
   totalAmount: number;
   splitMode: string;
   shareCode: string;
+  isCancelled?: boolean;
+  cancellationReason?: string | null;
   participants: Participant[];
 };
 
@@ -39,6 +41,11 @@ export default function SplittzyDashboard() {
   const [loading, setLoading] = useState(true);
   const [sortOption, setSortOption] = useState<string>('date_desc');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Cancellation modal state
+  const [cancelModalBill, setCancelModalBill] = useState<Bill | null>(null);
+  const [cancellationReasonInput, setCancellationReasonInput] = useState<string>('');
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchBills = (sort = sortOption) => {
     setLoading(true);
@@ -74,6 +81,7 @@ export default function SplittzyDashboard() {
     const rows = [
       ['Splittzy Bill Summary'],
       ['Bill Name', bill.title],
+      ['Status', bill.isCancelled ? `CANCELLED (${bill.cancellationReason || 'No reason provided'})` : 'ACTIVE'],
       ['Date', new Date(bill.date).toLocaleDateString()],
       ['Total Amount', `₹${bill.totalAmount}`],
       ['Share Code', bill.shareCode],
@@ -98,9 +106,80 @@ export default function SplittzyDashboard() {
     showToast(`Exported ${bill.title} to CSV!`);
   };
 
+  const handleOpenCancelModal = (bill: Bill) => {
+    setCancelModalBill(bill);
+    setCancellationReasonInput('');
+  };
+
+  const handleConfirmCancel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancelModalBill || !cancellationReasonInput.trim()) return;
+
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/splittzy/bills/${cancelModalBill.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cancel_bill',
+          cancellationReason: cancellationReasonInput.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        setCancelModalBill(null);
+        setCancellationReasonInput('');
+        showToast('Bill cancelled successfully!');
+        fetchBills(sortOption);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to cancel bill');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleUncancelBill = async (billId: string) => {
+    if (!confirm('Are you sure you want to restore this cancelled bill?')) return;
+
+    try {
+      const res = await fetch(`/api/splittzy/bills/${billId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'uncancel_bill',
+        }),
+      });
+
+      if (res.ok) {
+        showToast('Bill restored to active status!');
+        fetchBills(sortOption);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Helper to calculate user share text on card
   const getCardShareBadge = (bill: Bill) => {
-    // Check pending receivable amount
+    if (bill.isCancelled) {
+      return (
+        <div>
+          <span className="text-xl font-bold font-display text-rose-500 uppercase tracking-wide">
+            CANCELLED
+          </span>
+          {bill.cancellationReason && (
+            <p className="text-xs text-on-surface-variant line-clamp-1 italic mt-1">
+              &quot;{bill.cancellationReason}&quot;
+            </p>
+          )}
+        </div>
+      );
+    }
+
     let pendingReceivable = 0;
     let pendingPayable = 0;
 
@@ -132,57 +211,96 @@ export default function SplittzyDashboard() {
     }
   };
 
-  const activeBills = bills.filter((b) => b.participants.some((p) => p.status !== 'PAID'));
-  const completedBills = bills.filter((b) => b.participants.length > 0 && b.participants.every((p) => p.status === 'PAID'));
+  const activeBills = bills.filter((b) => !b.isCancelled && b.participants.some((p) => p.status !== 'PAID'));
+  const completedBills = bills.filter((b) => !b.isCancelled && b.participants.length > 0 && b.participants.every((p) => p.status === 'PAID'));
+  const cancelledBills = bills.filter((b) => b.isCancelled);
 
   const renderBillCard = (bill: Bill) => (
     <div
       key={bill.id}
-      className="bg-surface-container/50 backdrop-blur-xl border border-outline-variant/60 rounded-2xl p-5 flex flex-col justify-between hover:shadow-xl hover:border-emerald-500/40 transition-all duration-200 group"
+      className={`bg-surface-container/50 backdrop-blur-xl border rounded-2xl p-5 flex flex-col justify-between hover:shadow-xl transition-all duration-200 group ${
+        bill.isCancelled
+          ? 'border-rose-500/30 bg-rose-950/10'
+          : 'border-outline-variant/60 hover:border-emerald-500/40'
+      }`}
     >
       <div>
         {/* Bill Title & Date */}
-        <div className="mb-4">
-          <h3 className="text-lg font-bold font-display text-on-surface truncate group-hover:text-emerald-400 transition-colors">
-            {bill.title}
-          </h3>
-          <p className="text-xs font-mono text-on-surface-variant mt-0.5">
-            {new Date(bill.date).toLocaleDateString('en-US', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
-          </p>
+        <div className="mb-4 flex items-start justify-between gap-2">
+          <div>
+            <h3 className={`text-lg font-bold font-display truncate transition-colors ${
+              bill.isCancelled ? 'text-on-surface-variant line-through' : 'text-on-surface group-hover:text-emerald-400'
+            }`}>
+              {bill.title}
+            </h3>
+            <p className="text-xs font-mono text-on-surface-variant mt-0.5">
+              {new Date(bill.date).toLocaleDateString('en-US', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </p>
+          </div>
+          {bill.isCancelled && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+              Cancelled
+            </span>
+          )}
         </div>
 
         {/* Personal Net Share Status Badge */}
-        <div className="my-4 p-3 bg-surface-container-low/60 rounded-xl border border-outline-variant/30 text-center">
+        <div className={`my-4 p-3 rounded-xl border text-center ${
+          bill.isCancelled
+            ? 'bg-rose-500/10 border-rose-500/20'
+            : 'bg-surface-container-low/60 border-outline-variant/30'
+        }`}>
           {getCardShareBadge(bill)}
         </div>
       </div>
 
-      {/* Card Action Buttons: Details | Export | Link */}
-      <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-outline-variant/30">
-        <button
-          onClick={() => router.push(`/splittzy/bills/${bill.id}`)}
-          className="py-1.5 px-2 bg-surface-variant hover:bg-surface-container-high border border-outline-variant/50 rounded-lg text-xs font-semibold text-on-surface transition-all flex items-center justify-center gap-1"
-        >
-          Details
-        </button>
+      {/* Card Action Buttons */}
+      <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-outline-variant/30">
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => router.push(`/splittzy/bills/${bill.id}`)}
+            className="py-1.5 px-2 bg-surface-variant hover:bg-surface-container-high border border-outline-variant/50 rounded-lg text-xs font-semibold text-on-surface transition-all flex items-center justify-center gap-1"
+          >
+            Details
+          </button>
 
-        <button
-          onClick={() => handleExportBill(bill)}
-          className="py-1.5 px-2 bg-surface-variant hover:bg-surface-container-high border border-outline-variant/50 rounded-lg text-xs font-semibold text-on-surface transition-all flex items-center justify-center gap-1"
-        >
-          Export
-        </button>
+          <button
+            onClick={() => handleExportBill(bill)}
+            className="py-1.5 px-2 bg-surface-variant hover:bg-surface-container-high border border-outline-variant/50 rounded-lg text-xs font-semibold text-on-surface transition-all flex items-center justify-center gap-1"
+          >
+            Export
+          </button>
 
-        <button
-          onClick={() => handleCopyLink(bill.shareCode)}
-          className="py-1.5 px-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1"
-        >
-          Link
-        </button>
+          <button
+            onClick={() => handleCopyLink(bill.shareCode)}
+            className="py-1.5 px-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1"
+          >
+            Link
+          </button>
+        </div>
+
+        {/* Cancel or Restore Button */}
+        {bill.isCancelled ? (
+          <button
+            onClick={() => handleUncancelBill(bill.id)}
+            className="w-full py-1.5 px-2 bg-surface-variant hover:bg-surface-container-high border border-outline-variant/50 rounded-lg text-xs font-semibold text-emerald-400 transition-all flex items-center justify-center gap-1"
+          >
+            <span className="material-symbols-outlined text-[14px]">restore</span>
+            Restore Bill
+          </button>
+        ) : (
+          <button
+            onClick={() => handleOpenCancelModal(bill)}
+            className="w-full py-1.5 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1"
+          >
+            <span className="material-symbols-outlined text-[14px]">cancel</span>
+            Cancel Bill
+          </button>
+        )}
       </div>
     </div>
   );
@@ -316,7 +434,7 @@ export default function SplittzyDashboard() {
             {activeBills.length === 0 ? (
               <div className="bg-surface-container/40 border border-outline-variant/50 backdrop-blur-xl p-8 text-center rounded-2xl text-outline font-body">
                 <p className="text-sm font-semibold text-on-surface">No active bills</p>
-                <p className="text-xs text-on-surface-variant mt-1">All bills are either settled or non-existent.</p>
+                <p className="text-xs text-on-surface-variant mt-1">All bills are either settled, cancelled, or non-existent.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -344,6 +462,81 @@ export default function SplittzyDashboard() {
                 {completedBills.map(renderBillCard)}
               </div>
             )}
+          </div>
+
+          {/* Cancelled Bills Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold font-display text-rose-400 flex items-center gap-2">
+                <span className="material-symbols-outlined text-rose-400">cancel</span>
+                Cancelled Bills ({cancelledBills.length})
+              </h2>
+            </div>
+
+            {cancelledBills.length === 0 ? (
+              <div className="bg-surface-container/40 border border-outline-variant/50 backdrop-blur-xl p-8 text-center rounded-2xl text-outline font-body">
+                <p className="text-sm font-semibold text-on-surface">No cancelled bills</p>
+                <p className="text-xs text-on-surface-variant mt-1">Bills cancelled with a reason will appear here and are excluded from summary balances.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {cancelledBills.map(renderBillCard)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cancel Bill with Reason */}
+      {cancelModalBill && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container border border-outline-variant/60 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold font-display text-rose-400 flex items-center gap-2">
+                <span className="material-symbols-outlined">cancel</span>
+                Cancel Bill: {cancelModalBill.title}
+              </h2>
+              <button onClick={() => setCancelModalBill(null)} className="text-outline hover:text-on-surface">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCancel} className="space-y-4">
+              <p className="text-xs text-on-surface-variant">
+                Cancelling this bill will remove its amount from all total receivable, due, and net calculations, and move it to the <strong>Cancelled Bills</strong> section.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                  Reason for Cancellation *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="e.g. Duplicate entry, bill wrong amount, or party cancelled..."
+                  value={cancellationReasonInput}
+                  onChange={(e) => setCancellationReasonInput(e.target.value)}
+                  className="w-full bg-surface-container-high border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-outline-variant/40">
+                <button
+                  type="button"
+                  onClick={() => setCancelModalBill(null)}
+                  className="px-4 py-2 bg-surface-variant text-on-surface text-sm font-semibold rounded-xl"
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancelling || !cancellationReasonInput.trim()}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm rounded-xl shadow-md disabled:opacity-50 transition-all flex items-center gap-1.5"
+                >
+                  {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

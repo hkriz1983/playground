@@ -91,6 +91,34 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json(newParticipant);
     }
 
+    // Action 4: Cancel bill with reason
+    if (action === 'cancel_bill') {
+      const { cancellationReason } = body;
+      if (!cancellationReason || !cancellationReason.trim()) {
+        return NextResponse.json({ error: 'Cancellation reason is required' }, { status: 400 });
+      }
+      const updatedBill = await prisma.splittzyBill.update({
+        where: { id },
+        data: {
+          isCancelled: true,
+          cancellationReason: cancellationReason.trim(),
+        },
+      });
+      return NextResponse.json(updatedBill);
+    }
+
+    // Action 5: Restore / Un-cancel bill
+    if (action === 'uncancel_bill') {
+      const updatedBill = await prisma.splittzyBill.update({
+        where: { id },
+        data: {
+          isCancelled: false,
+          cancellationReason: null,
+        },
+      });
+      return NextResponse.json(updatedBill);
+    }
+
     // Action 4: Edit full bill details
     const { title, totalAmount, date } = body;
     const updated = await prisma.splittzyBill.update({

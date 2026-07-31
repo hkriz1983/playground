@@ -192,6 +192,8 @@ model SplittzyBill {
   splitMode    String                  @default("AUTO") @map("split_mode") // AUTO | CUSTOM_PERCENTAGE | CUSTOM_EXACT
   billPhotos   String?                 @map("bill_photos") // JSON array of string URLs
   shareCode    String                  @unique @default(uuid()) @map("share_code")
+  isCancelled  Boolean                 @default(false) @map("is_cancelled")
+  cancellationReason String?           @map("cancellation_reason")
   createdAt    DateTime                @default(now()) @map("created_at")
   updatedAt    DateTime                @updatedAt @map("updated_at")
 

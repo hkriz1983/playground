@@ -22,6 +22,10 @@ export async function POST(req: Request, { params }: { params: { shareCode: stri
       return NextResponse.json({ error: 'Invalid share code' }, { status: 404 });
     }
 
+    if (bill.isCancelled) {
+      return NextResponse.json({ error: 'This bill has been cancelled. Payment uploads are disabled.' }, { status: 400 });
+    }
+
     const updated = await prisma.splittzyBillParticipant.update({
       where: { id: participantId },
       data: {
