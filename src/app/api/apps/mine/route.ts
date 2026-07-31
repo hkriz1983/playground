@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { ensureDefaultApps } from '@/lib/ensureDefaultApps';
 
 const prisma = new PrismaClient();
 
@@ -10,6 +11,9 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
+
+    // Auto-seed default apps & user access if missing
+    await ensureDefaultApps(prisma, userId);
 
     const user = await prisma.user.findUnique({
       where: { id: userId },

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { ensureDefaultApps } from '@/lib/ensureDefaultApps';
 
 const prisma = new PrismaClient();
 
 export async function GET() {
   try {
+    await ensureDefaultApps(prisma);
     const apps = await prisma.app.findMany({
       orderBy: { createdAt: 'desc' }
     });
