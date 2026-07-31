@@ -135,7 +135,7 @@ export default function AppMaster() {
              </div>
           ) : modules.length === 0 ? (
             <div className="bg-surface-container/40 border border-outline-variant/50 backdrop-blur-xl p-12 text-center rounded-xl text-outline font-body">
-              No apps registered. Click "Register New Module" to create one.
+              No apps registered. Click &quot;Register New Module&quot; to create one.
             </div>
           ) : modules.map((mod) => (
             <div key={mod.id} className="bg-surface-container/40 border border-outline-variant/50 backdrop-blur-xl p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 group transition-all hover:-translate-y-0.5 hover:bg-surface-container/80 hover:border-primary/50 shadow-sm">

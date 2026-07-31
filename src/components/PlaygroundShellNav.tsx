@@ -20,6 +20,8 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const isPublic = pathname.startsWith('/splittzy/p/');
+
   useEffect(() => {
     const fetchMe = () => {
       fetch('/api/auth/me')
@@ -28,22 +30,26 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
           return res.json();
         })
         .then(data => setUser(data))
-        .catch(() => router.push('/login'));
+        .catch(() => {
+          if (!isPublic && pathname !== '/login') {
+            router.push('/login');
+          }
+        });
     };
 
-    if (pathname !== '/login') {
+    if (pathname !== '/login' && !isPublic) {
       fetchMe();
     }
 
     const handleUserUpdated = () => {
-      if (pathname !== '/login') {
+      if (pathname !== '/login' && !isPublic) {
         fetchMe();
       }
     };
 
     window.addEventListener('user-updated', handleUserUpdated);
     return () => window.removeEventListener('user-updated', handleUserUpdated);
-  }, [pathname, router]);
+  }, [pathname, router, isPublic]);
 
   const handleLogout = async () => {
     try {
@@ -54,7 +60,7 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
     }
   };
 
-  if (pathname === '/login') return <>{children}</>;
+  if (pathname === '/login' || isPublic) return <>{children}</>;
   if (!user) return <div className="min-h-screen bg-surface flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div></div>;
 
   return (
@@ -114,16 +120,18 @@ export default function PlaygroundLayoutShell({ children }: { children: React.Re
           </div>
           <div className="flex items-center justify-between px-4 py-4 mt-2 bg-surface-container-low rounded-xl">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className={`w-10 h-10 shrink-0 rounded-full bg-${user.avatarColor}/20 flex items-center justify-center border border-${user.avatarColor}/30 overflow-hidden`}>
-                {user.avatar ? (
-                  <img alt={user.name} className="w-full h-full object-cover" src={user.avatar} />
+              <div className={`w-10 h-10 shrink-0 rounded-full bg-${user?.avatarColor || 'primary'}/20 flex items-center justify-center border border-${user?.avatarColor || 'primary'}/30 overflow-hidden`}>
+                {user?.avatar ? (
+                  <img alt={user?.name || 'User'} className="w-full h-full object-cover" src={user.avatar} />
                 ) : (
-                  <span className={`text-${user.avatarColor} font-display font-bold`}>{user.name.charAt(0)}</span>
+                  <span className={`text-${user?.avatarColor || 'primary'} font-display font-bold`}>
+                    {(user?.name || 'U').charAt(0)}
+                  </span>
                 )}
               </div>
               <div className="flex flex-col overflow-hidden">
-                <span className="font-display text-sm font-semibold truncate text-on-surface">{user.name}</span>
-                <span className="font-body text-[10px] truncate text-outline">{user.designation || 'Playground User'}</span>
+                <span className="font-display text-sm font-semibold truncate text-on-surface">{user?.name || 'User'}</span>
+                <span className="font-body text-[10px] truncate text-outline">{user?.designation || 'Playground User'}</span>
               </div>
             </div>
           </div>

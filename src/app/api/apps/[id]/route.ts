@@ -14,7 +14,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     });
     
     return NextResponse.json(app);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to update app' }, { status: 500 });
   }
 }
@@ -28,7 +28,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     });
     
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to delete app' }, { status: 500 });
   }
 }

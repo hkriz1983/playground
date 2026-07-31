@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,12 +21,13 @@ export default function Login() {
       });
 
       if (res.ok) {
-        router.push('/');
+        window.dispatchEvent(new Event('user-updated'));
+        window.location.href = '/';
       } else {
         const data = await res.json();
         setError(data.error || 'Login failed');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred');
     } finally {
       setLoading(false);

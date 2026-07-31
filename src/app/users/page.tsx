@@ -100,7 +100,7 @@ export default function UserMaster() {
       
       const payload = { ...formData };
       if (isEditing && !payload.password) {
-        delete (payload as any).password;
+        delete (payload as Record<string, unknown>).password;
       }
       
       const res = await fetch(url, {

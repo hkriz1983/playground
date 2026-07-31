@@ -9,7 +9,7 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
     return NextResponse.json(apps);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch apps' }, { status: 500 });
   }
 }
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       }
     });
     return NextResponse.json(app);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create app' }, { status: 500 });
   }
 }

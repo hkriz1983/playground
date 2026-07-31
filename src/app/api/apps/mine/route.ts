@@ -26,10 +26,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const myApps = user.appAccess.map(access => access.app);
+    if (user.role === 'ADMIN') {
+      const allApps = await prisma.app.findMany({ orderBy: { createdAt: 'desc' } });
+      return NextResponse.json(allApps);
+    }
 
+    const myApps = user.appAccess.map(access => access.app);
     return NextResponse.json(myApps);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
