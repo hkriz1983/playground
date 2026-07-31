@@ -31,6 +31,15 @@ export async function GET(req: NextRequest) {
           avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
         },
       });
+    } else if (currentUser && existingSelf.name !== currentUser.name) {
+      // Keep "Myself" card name dynamically synced with logged-in user profile
+      await prisma.splittzyFriend.update({
+        where: { id: existingSelf.id },
+        data: {
+          name: currentUser.name,
+          avatar: existingSelf.avatar || currentUser.avatar || null,
+        },
+      });
     }
 
     const friends = await prisma.splittzyFriend.findMany({
