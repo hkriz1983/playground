@@ -26,6 +26,13 @@ export async function ensureDefaultApps(prisma: PrismaClient, userId?: string) {
         color: 'amber-500',
         appLink: '/cricket-ledger',
       },
+      {
+        name: 'Client PO Register',
+        description: 'Client Purchase Order tracking & Execution Lifecycle register for Indian Timber Products (ITP).',
+        icon: 'assignment',
+        color: 'amber-600',
+        appLink: '/client-po',
+      },
     ];
 
     for (const reqApp of requiredApps) {

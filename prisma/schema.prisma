@@ -224,3 +224,375 @@ model SplittzyBillParticipant {
   @@map("splittzy_bill_participants")
 }
 
+model PoManagerOrder {
+  id              Int      @id @default(autoincrement())
+  userId          String   @default("mock-user-1234") @map("user_id")
+  client          String
+  project         String?
+  poNumber        String   @map("po_number")
+  poDate          String?  @map("po_date")
+  deliveryDate    String?  @map("delivery_date")
+  status          String   @default("Active")
+  totalBasic      Float    @default(0) @map("total_basic")
+  totalTax        Float    @default(0) @map("total_tax")
+  totalOrderValue Float    @default(0) @map("total_order_value")
+  termsRaw        String?  @map("terms_raw")
+  creditDays      Int      @default(30) @map("credit_days")
+  notes           String?
+  items           String?  @default("[]") // JSON array of items
+  milestones      String?  @default("[]") // JSON array of milestones
+  lifecycle       String?  @default("{}") // JSON object of lifecycle ledgers
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([client])
+  @@map("po_manager_orders")
+}
+
+// =============================================================================
+// CLIENT PO REGISTER & EXECUTION LIFECYCLE MODULE SCHEMAS
+// =============================================================================
+
+model ClientPoClient {
+  id              String            @id @default(uuid())
+  name            String            @unique
+  legalName       String?           @map("legal_name")
+  gstin           String?
+  creditDays      Int               @default(30) @map("credit_days")
+  contactPerson   String?           @map("contact_person")
+  email           String?
+  phone           String?
+  address         String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  projects        ClientPoProject[]
+  pos             ClientPoHeader[]
+
+  @@map("client_po_clients")
+}
+
+model ClientPoProject {
+  id              String            @id @default(uuid())
+  clientId        String            @map("client_id")
+  name            String
+  code            String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  client          ClientPoClient    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  pos             ClientPoHeader[]
+
+  @@unique([clientId, name])
+  @@map("client_po_projects")
+}
+
+model ClientPoHeader {
+  id                  String                      @id @default(uuid())
+  poNumber            String                      @unique @map("po_number")
+  clientId            String                      @map("client_id")
+  projectId           String?                     @map("project_id")
+  vendor              String?                     @default("Indian Timber Products")
+  poDate              DateTime?                   @map("po_date")
+  deliveryDate        DateTime?                   @map("delivery_date")
+  status              String                      @default("Active") // Active | Closed
+  totalBasic          Float                       @default(0) @map("total_basic")
+  totalTax            Float                       @default(0) @map("total_tax")
+  totalOrderValue     Float                       @default(0) @map("total_order_value")
+  termsRaw            String?                     @map("terms_raw")
+  creditDays          Int                         @default(30) @map("credit_days")
+  retentionMonths     Int                         @default(12) @map("retention_months")
+  notes               String?
+  createdAt           DateTime                    @default(now()) @map("created_at")
+  updatedAt           DateTime                    @updatedAt @map("updated_at")
+
+  client              ClientPoClient              @relation(fields: [clientId], references: [id])
+  project             ClientPoProject?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  items               ClientPoItem[]
+  milestones          ClientPoMilestone[]
+  advancePayments     ClientPoAdvancePayment[]
+  productions         ClientPoProduction[]
+  dispatches          ClientPoDispatch[]
+  invoices            ClientPoInvoice[]
+  customerPayments    ClientPoCustomerPayment[]
+  installations       ClientPoInstallation[]
+  installationInvoices ClientPoInstallInvoice[]
+  retentionState      ClientPoRetentionState?
+  history             ClientPoHistory[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([poDate])
+  @@map("client_po_headers")
+}
+
+model ClientPoItem {
+  id              String                        @id @default(uuid())
+  poId            String                        @map("po_id")
+  itemIndex       Int                           @map("item_index")
+  desc            String
+  uom             String                        @default("NUM")
+  qty             Float                         @default(0)
+  unitPrice       Float                         @default(0) @map("unit_price")
+  value           Float                         @default(0)
+
+  po              ClientPoHeader                @relation(fields: [poId], references: [id], onDelete: Cascade)
+  prodAllocations ClientPoProductionAllocation[]
+  dispAllocations ClientPoDispatchAllocation[]
+  invAllocations  ClientPoInvoiceAllocation[]
+  instAllocations ClientPoInstallationAllocation[]
+  iinvAllocations ClientPoInstallInvoiceAllocation[]
+
+  @@unique([poId, itemIndex])
+  @@map("client_po_items")
+}
+
+model ClientPoMilestone {
+  id          String         @id @default(uuid())
+  poId        String         @map("po_id")
+  label       String
+  mode        String         @default("percent") // percent | fixed
+  value       Float          @default(0)
+  basis       String?
+  
+  po          ClientPoHeader @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_milestones")
+}
+
+model ClientPoAdvancePayment {
+  id          String         @id @default(uuid())
+  poId        String         @map("po_id")
+  date        DateTime       @default(now())
+  amount      Float          @default(0)
+  ref         String?
+  note        String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  po          ClientPoHeader @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_advance_payments")
+}
+
+model ClientPoProduction {
+  id          String                        @id @default(uuid())
+  poId        String                        @map("po_id")
+  date        DateTime                      @default(now())
+  qty         Float                         @default(0)
+  value       Float                         @default(0)
+  note        String?
+  createdAt   DateTime                      @default(now()) @map("created_at")
+
+  po          ClientPoHeader                @relation(fields: [poId], references: [id], onDelete: Cascade)
+  allocations ClientPoProductionAllocation[]
+
+  @@map("client_po_productions")
+}
+
+model ClientPoProductionAllocation {
+  id            String             @id @default(uuid())
+  productionId  String             @map("production_id")
+  itemId        String             @map("item_id")
+  qty           Float              @default(0)
+
+  production    ClientPoProduction @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  item          ClientPoItem       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_production_allocations")
+}
+
+model ClientPoDispatch {
+  id          String                      @id @default(uuid())
+  poId        String                      @map("po_id")
+  date        DateTime                    @default(now())
+  qty         Float                       @default(0)
+  value       Float                       @default(0)
+  note        String?
+  createdAt   DateTime                    @default(now()) @map("created_at")
+
+  po          ClientPoHeader              @relation(fields: [poId], references: [id], onDelete: Cascade)
+  allocations ClientPoDispatchAllocation[]
+
+  @@map("client_po_dispatches")
+}
+
+model ClientPoDispatchAllocation {
+  id          String           @id @default(uuid())
+  dispatchId  String           @map("dispatch_id")
+  itemId      String           @map("item_id")
+  qty         Float            @default(0)
+
+  dispatch    ClientPoDispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  item        ClientPoItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_dispatch_allocations")
+}
+
+model ClientPoInvoice {
+  id          String                     @id @default(uuid())
+  poId        String                     @map("po_id")
+  date        DateTime                   @default(now())
+  qty         Float                      @default(0)
+  value       Float                      @default(0)
+  dueDate     DateTime                   @map("due_date")
+  note        String?
+  createdAt   DateTime                   @default(now()) @map("created_at")
+
+  po          ClientPoHeader             @relation(fields: [poId], references: [id], onDelete: Cascade)
+  allocations ClientPoInvoiceAllocation[]
+
+  @@map("client_po_invoices")
+}
+
+model ClientPoInvoiceAllocation {
+  id          String          @id @default(uuid())
+  invoiceId   String          @map("invoice_id")
+  itemId      String          @map("item_id")
+  qty         Float           @default(0)
+
+  invoice     ClientPoInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item        ClientPoItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_invoice_allocations")
+}
+
+model ClientPoCustomerPayment {
+  id          String         @id @default(uuid())
+  poId        String         @map("po_id")
+  date        DateTime       @default(now())
+  amount      Float          @default(0)
+  type        String         @default("dispatch") // advance | dispatch | installation | retention
+  ref         String?
+  note        String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  po          ClientPoHeader @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_customer_payments")
+}
+
+model ClientPoInstallation {
+  id          String                          @id @default(uuid())
+  poId        String                          @map("po_id")
+  date        DateTime                        @default(now())
+  qty         Float                           @default(0)
+  note        String?
+  createdAt   DateTime                        @default(now()) @map("created_at")
+
+  po          ClientPoHeader                  @relation(fields: [poId], references: [id], onDelete: Cascade)
+  allocations ClientPoInstallationAllocation[]
+
+  @@map("client_po_installations")
+}
+
+model ClientPoInstallationAllocation {
+  id             String               @id @default(uuid())
+  installationId String               @map("installation_id")
+  itemId         String               @map("item_id")
+  qty            Float                @default(0)
+
+  installation   ClientPoInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  item           ClientPoItem         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_installation_allocations")
+}
+
+model ClientPoInstallInvoice {
+  id          String                           @id @default(uuid())
+  poId        String                           @map("po_id")
+  date        DateTime                         @default(now())
+  qty         Float                            @default(0)
+  value       Float                            @default(0)
+  dueDate     DateTime                         @map("due_date")
+  note        String?
+  createdAt   DateTime                         @default(now()) @map("created_at")
+
+  po          ClientPoHeader                   @relation(fields: [poId], references: [id], onDelete: Cascade)
+  allocations ClientPoInstallInvoiceAllocation[]
+
+  @@map("client_po_install_invoices")
+}
+
+model ClientPoInstallInvoiceAllocation {
+  id               String                 @id @default(uuid())
+  installInvoiceId String                 @map("install_invoice_id")
+  itemId           String                 @map("item_id")
+  qty              Float                  @default(0)
+
+  installInvoice   ClientPoInstallInvoice @relation(fields: [installInvoiceId], references: [id], onDelete: Cascade)
+  item             ClientPoItem           @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_install_invoice_allocations")
+}
+
+model ClientPoRetentionState {
+  id            String         @id @default(uuid())
+  poId          String         @unique @map("po_id")
+  started       Boolean        @default(false)
+  startDate     DateTime?      @map("start_date")
+  amount        Float          @default(0)
+  periodMonths  Int            @default(12) @map("period_months")
+  releaseDate   DateTime?      @map("release_date")
+  released      Boolean        @default(false)
+  releasedDate  DateTime?      @map("released_date")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  po            ClientPoHeader @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@map("client_po_retention_states")
+}
+
+model ClientPoHistory {
+  id          String         @id @default(uuid())
+  poId        String         @map("po_id")
+  ts          DateTime       @default(now())
+  type        String         // advance | prod | dispatch | invoice | payment | install | retention | edit
+  text        String
+  
+  po          ClientPoHeader @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@index([poId, ts])
+  @@map("client_po_histories")
+}
+
+model ClientPoUomMaster {
+  id        String                @id @default(uuid())
+  code      String                @unique
+  name      String
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+
+  itemUoms  ClientPoLineItemUom[]
+
+  @@map("client_po_uom_masters")
+}
+
+model ClientPoLineItemMaster {
+  id               String                @id @default(uuid())
+  name             String                @unique
+  code             String?
+  defaultUnitPrice Float                 @default(0) @map("default_unit_price")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+
+  uoms             ClientPoLineItemUom[]
+
+  @@map("client_po_line_item_masters")
+}
+
+model ClientPoLineItemUom {
+  id     String                 @id @default(uuid())
+  itemId String                 @map("item_id")
+  uomId  String                 @map("uom_id")
+
+  item   ClientPoLineItemMaster @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  uom    ClientPoUomMaster      @relation(fields: [uomId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, uomId])
+  @@map("client_po_line_item_uoms")
+}
+
+
+
