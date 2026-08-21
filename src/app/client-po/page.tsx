@@ -956,43 +956,90 @@ export default function ClientPoPage() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="bg-[#1B2A41] text-[#EDE6D6] p-4 rounded-lg shadow-md border-l-4 border-l-[#B8862E] flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <div className="font-mono text-lg font-bold text-white">{selectedLcPo.poNumber}</div>
-                        <div className="text-xs text-white font-semibold">{selectedLcPo.client} — {selectedLcPo.project}</div>
-                      </div>
-                      <div className="bg-[#EDE6D6]/20 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                        {selectedLcCalc?.stage}
-                      </div>
-                      <div className="flex gap-4 text-xs font-mono">
-                        <div><span className="text-gray-400 block text-[10px]">TOTAL VALUE</span>{fmt(selectedLcCalc?.totalPOValue)}</div>
-                        <div><span className="text-gray-400 block text-[10px]">RECEIVED</span>{fmt(poFinancials(selectedLcPo).received)}</div>
-                        <div><span className="text-[#E4C583] block text-[10px]">RECEIVABLE</span><span className="text-[#E4C583] font-bold">{fmt(poFinancials(selectedLcPo).receivable)}</span></div>
-                      </div>
-                      <button className="border border-white/40 hover:bg-white/10 px-3 py-1.5 rounded text-xs" onClick={() => setActivePoId(null)}>
-                        ← Back to PO List
-                      </button>
-                    </div>
+                    {/* PO Header Card */}
+                    {(() => {
+                      const fin = poFinancials(selectedLcPo);
+                      const currentReceivable = (selectedLcCalc?.pendingAdvance || 0) + (selectedLcCalc?.outstandingAmount || 0) + (selectedLcCalc?.installationOutstanding || 0);
 
+                      return (
+                        <div className="bg-[#1B2A41] text-[#EDE6D6] p-5 rounded-lg shadow-md border-t-4 border-t-[#B8862E] flex flex-wrap items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="font-mono text-xl font-bold text-white tracking-wide">{selectedLcPo.poNumber}</div>
+                            <div className="text-xs text-gray-300 font-semibold">{selectedLcPo.client} — {selectedLcPo.project || 'Active'}</div>
+                          </div>
+
+                          <div className="bg-[#EDE6D6]/15 text-[#EDE6D6] border border-white/20 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide">
+                            {selectedLcCalc?.stage}
+                          </div>
+
+                          <div className="flex flex-wrap gap-6 text-xs font-mono">
+                            <div>
+                              <span className="text-gray-400 block text-[9px] uppercase tracking-wider font-sans">TOTAL VALUE</span>
+                              <span className="text-white text-sm font-bold">{fmt(selectedLcCalc?.totalPOValue)}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 block text-[9px] uppercase tracking-wider font-sans">RECEIVED</span>
+                              <span className="text-[#A5D6A7] text-sm font-bold">{fmt(fin.received)}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 block text-[9px] uppercase tracking-wider font-sans">RECEIVABLE</span>
+                              <span className="text-[#F4A68D] text-sm font-bold">{fmt(currentReceivable)}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            className="bg-white/10 hover:bg-white/20 border border-white/30 text-white px-4 py-2 rounded text-xs font-semibold transition-colors"
+                            onClick={() => setActivePoId(null)}
+                          >
+                            ← Back to PO List
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Active Stage Indicator Badge */}
+                    {selectedLcCalc?.stage && (
+                      <div className="inline-block bg-[#1B2A41] text-white px-4 py-1.5 rounded text-xs font-bold font-serif shadow-sm">
+                        {selectedLcCalc.stage.replace(/^Stage \d+ · /, '')}
+                      </div>
+                    )}
+
+                    {/* Status Banners List */}
                     {selectedLcCalc?.notif.map((n, i) => (
-                      <div key={i} className={`p-3 rounded text-xs border-l-4 ${n.level === 'danger' ? 'bg-[#F8E9E5] border-[#A9432F] text-[#A9432F]' : n.level === 'warn' ? 'bg-[#FBF1E3] border-[#B8862E] text-[#8a620f]' : n.level === 'good' ? 'bg-[#E9F1EC] border-[#3F6E4E] text-[#3F6E4E]' : 'bg-[#EDE6D6] border-[#3A4A63] text-[#3A4A63]'}`}>
+                      <div
+                        key={i}
+                        className={`p-3.5 rounded text-xs border-l-4 shadow-sm font-medium ${
+                          n.level === 'danger'
+                            ? 'bg-[#F8E9E5] border-[#A9432F] text-[#A9432F]'
+                            : n.level === 'warn'
+                            ? 'bg-[#FBF1E3] border-[#B8862E] text-[#8a620f]'
+                            : n.level === 'good'
+                            ? 'bg-[#E9F1EC] border-[#3F6E4E] text-[#3F6E4E]'
+                            : 'bg-[#EDE6D6] border-[#3A4A63] text-[#3A4A63]'
+                        }`}
+                      >
                         {n.text}
                       </div>
                     ))}
 
-                    <div className="flex border-b-2 border-[#D8CFB8] overflow-x-auto gap-2">
+                    {/* Stage Tab Navigation */}
+                    <div className="flex border-b-2 border-[#1B2A41] overflow-x-auto gap-1 pt-2">
                       {[
-                        { id: 'lcs-advance', label: '1 · Advance' },
-                        { id: 'lcs-production', label: '2 · Production' },
-                        { id: 'lcs-dispatch', label: '3 · Dispatch' },
-                        { id: 'lcs-invoice', label: '4 · Dispatch Invoice' },
-                        { id: 'lcs-install', label: '5 · Installation' },
-                        { id: 'lcs-install-invoice', label: '6 · Install Invoice' },
-                        { id: 'lcs-retention', label: '7 · Retention' },
+                        { id: 'lcs-advance', num: 1, label: 'Advance' },
+                        { id: 'lcs-production', num: 2, label: 'Production' },
+                        { id: 'lcs-dispatch', num: 3, label: 'Dispatch' },
+                        { id: 'lcs-invoice', num: 4, label: 'Dispatch Invoice' },
+                        { id: 'lcs-install', num: 5, label: 'Installation' },
+                        { id: 'lcs-install-invoice', num: 6, label: 'Install Invoice' },
+                        { id: 'lcs-retention', num: 7, label: 'Retention' },
                       ].map(tab => (
                         <button
                           key={tab.id}
-                          className={`px-4 py-2 font-semibold text-xs border-b-4 -mb-1 whitespace-nowrap transition-colors ${activeStageTab === tab.id ? 'border-[#B8862E] text-[#B8862E]' : 'border-transparent text-[#3A4A63] hover:text-[#1B2A41]'}`}
+                          className={`flex items-center gap-1.5 px-4 py-2.5 font-semibold text-xs border-b-2 transition-all whitespace-nowrap -mb-[2px] ${
+                            activeStageTab === tab.id
+                              ? 'border-[#B8862E] text-[#1B2A41] bg-[#F6F2E9]'
+                              : 'border-transparent text-[#3A4A63] hover:text-[#1B2A41] hover:bg-[#F6F2E9]/50'
+                          }`}
                           onClick={() => {
                             setActiveStageTab(tab.id);
                             let defaultType = 'dispatch';
@@ -1002,7 +1049,14 @@ export default function ClientPoPage() {
                             setLcInputs(prev => ({ ...prev, pay_type: defaultType }));
                           }}
                         >
-                          {tab.label}
+                          <span
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              activeStageTab === tab.id ? 'bg-[#B8862E] text-white' : 'bg-[#EDE6D6] text-[#3A4A63]'
+                            }`}
+                          >
+                            {tab.num}
+                          </span>
+                          <span>{tab.label}</span>
                         </button>
                       ))}
                     </div>
@@ -1010,8 +1064,8 @@ export default function ClientPoPage() {
                     {/* Tab 1: Advance */}
                     {activeStageTab === 'lcs-advance' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
-                        <h4 className="font-serif font-semibold text-base">1 · Advance Payment (Value-Based)</h4>
-                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                        <h4 className="font-serif font-semibold text-base text-[#1B2A41]">1 · Advance Payment (Value-Based)</h4>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
                           <div>Required: <b>{fmt(selectedLcCalc?.advanceTargetValue)}</b></div>
                           <div>Received: <b>{fmt(selectedLcCalc?.totalAdvanceReceived)}</b></div>
                           <div>Consumed: <b>{fmt(selectedLcCalc?.advanceConsumedByProduction)}</b></div>
@@ -1019,9 +1073,9 @@ export default function ClientPoPage() {
                           <div className="text-[#A9432F]">Pending: <b>{fmt(selectedLcCalc?.pendingAdvance)}</b></div>
                         </div>
 
-                        <div className="space-y-2 pt-2 border-t">
+                        <div className="space-y-2 pt-2 border-t border-[#D8CFB8]">
                           <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Advance Payments</div>
-                          <table className="w-full text-left text-xs">
+                          <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
                                 <th className="p-2">Date</th>
@@ -1033,7 +1087,7 @@ export default function ClientPoPage() {
                             </thead>
                             <tbody className="divide-y divide-[#D8CFB8]">
                               {selectedLcCalc?.lc.advancePayments.length === 0 ? (
-                                <tr><td colSpan={5} className="p-3 text-center text-gray-500">No advance payments recorded yet. Record via Customer Payment Drawer below.</td></tr>
+                                <tr><td colSpan={5} className="p-3 text-center text-gray-500">No advance payments recorded yet.</td></tr>
                               ) : (
                                 selectedLcCalc?.lc.advancePayments.map(r => (
                                   <tr key={r.id}>
@@ -1057,25 +1111,35 @@ export default function ClientPoPage() {
                     {/* Tab 2: Production */}
                     {activeStageTab === 'lcs-production' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
-                        <h4 className="font-serif font-semibold text-base">2 · Sent for Production</h4>
+                        <h4 className="font-serif font-semibold text-base text-[#1B2A41]">2 · Sent for Production</h4>
                         <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
-                          <div>Eligible Production: <b>{fmt(selectedLcCalc?.productionEligibleValue)} ({selectedLcCalc?.productionEligibleQty} units)</b></div>
-                          <div>In Production: <b>{fmt(selectedLcCalc?.totalProductionValue)} ({selectedLcCalc?.totalProductionQty} units)</b></div>
-                          <div>Remaining Capacity: <b>{fmt(selectedLcCalc?.remainingProductionCapacity)}</b></div>
+                          <div>Production eligible: <b>{fmt(selectedLcCalc?.productionEligibleValue)}</b></div>
+                          <div>In production: <b>{fmt(selectedLcCalc?.totalProductionValue)} / {selectedLcCalc?.totalProductionQty} units</b></div>
+                          <div>Remaining capacity: <b>{fmt(selectedLcCalc?.remainingProductionCapacity)}</b></div>
+                          {(selectedLcCalc?.productionAdvancePending || 0) > 0 && (
+                            <div className="text-[#A9432F]">Advance shortfall: <b>{fmt(selectedLcCalc?.productionAdvancePending)}</b></div>
+                          )}
                         </div>
 
+                        {(selectedLcCalc?.advanceTargetValue || 0) > 0 && (
+                          <div className="text-[11px] text-gray-600 italic bg-[#F6F2E9]/60 p-2.5 rounded border border-[#D8CFB8]">
+                            Eligibility = (Advance Received ÷ Required Advance) × Dispatch Milestone Value = ({fmt(selectedLcCalc?.totalAdvanceReceived)} ÷ {fmt(selectedLcCalc?.advanceTargetValue)}) × {fmt(selectedLcCalc?.dispMilestoneValue)} = <b>{Math.round((selectedLcCalc?.advanceRatio || 0) * 1000) / 10}%</b> of the Dispatch milestone unlocked so far.
+                          </div>
+                        )}
+
                         <div className="space-y-3">
-                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Release Quantity for Production</div>
-                          
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b border-[#D8CFB8] pb-1">Release Quantity for Production</div>
+
                           <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
-                            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                            <table className="w-full text-left text-xs border-collapse min-w-[680px]">
                               <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
                                 <tr>
                                   <th className="p-2.5">PO Item</th>
                                   <th className="p-2.5 text-right font-mono">Ordered</th>
                                   <th className="p-2.5 text-right font-mono">In Production</th>
-                                  <th className="p-2.5 text-right font-mono">Remaining Max</th>
+                                  <th className="p-2.5 text-right font-mono">Remaining</th>
                                   <th className="p-2.5 text-right font-mono">Qty Now</th>
+                                  <th className="p-2.5 text-right font-mono">Value Now</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-[#D8CFB8]">
@@ -1083,6 +1147,8 @@ export default function ClientPoPage() {
                                   const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
                                   const prodQ = stat?.productionQty || 0;
                                   const maxRemaining = Math.max(0, it.qty - prodQ);
+                                  const inputQty = Number(lcInputs[`prod_${it.itemIndex}`]) || 0;
+                                  const rowValue = inputQty * (it.unitPrice || 0);
 
                                   return (
                                     <tr key={it.id} className="hover:bg-[#FBF7EC]">
@@ -1101,15 +1167,19 @@ export default function ClientPoPage() {
                                           onChange={e => setLcInputs({ ...lcInputs, [`prod_${it.itemIndex}`]: e.target.value })}
                                         />
                                       </td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#1B2A41]">{fmt(rowValue)}</td>
                                     </tr>
                                   );
                                 })}
                               </tbody>
                               <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
                                 <tr>
-                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry — Qty:</td>
+                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry —</td>
                                   <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
-                                    {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`prod_${it.itemIndex}`]) || 0), 0)}
+                                    Qty: {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`prod_${it.itemIndex}`]) || 0), 0)}
+                                  </td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#B8862E]">
+                                    Amount: {fmt(selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`prod_${it.itemIndex}`]) || 0) * (it.unitPrice || 0), 0))}
                                   </td>
                                 </tr>
                               </tfoot>
@@ -1167,7 +1237,7 @@ export default function ClientPoPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2 pt-4 border-t">
+                        <div className="space-y-2 pt-4 border-t border-[#D8CFB8]">
                           <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Production Entries</div>
                           <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
@@ -1205,24 +1275,26 @@ export default function ClientPoPage() {
                     {/* Tab 3: Dispatch */}
                     {activeStageTab === 'lcs-dispatch' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
-                        <h4 className="font-serif font-semibold text-base">3 · Material Dispatch</h4>
+                        <h4 className="font-serif font-semibold text-base text-[#1B2A41]">3 · Material Dispatch</h4>
                         <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
-                          <div>Ready for Dispatch: <b>{fmt(selectedLcCalc?.readyForDispatchValue)} ({selectedLcCalc?.readyForDispatchQty} units)</b></div>
-                          <div>Total Dispatched: <b>{fmt(selectedLcCalc?.totalDispatchedValue)} ({selectedLcCalc?.totalDispatchedQty} units)</b></div>
+                          <div>Ready for dispatch: <b>{fmt(selectedLcCalc?.readyForDispatchValue)} / {selectedLcCalc?.readyForDispatchQty} units</b></div>
+                          <div>Dispatched: <b>{fmt(selectedLcCalc?.totalDispatchedValue)} / {selectedLcCalc?.totalDispatchedQty} units</b></div>
+                          <div>Balance PO: <b>{fmt(Math.max(0, (selectedLcCalc?.totalPOValue || 0) - (selectedLcCalc?.totalDispatchedValue || 0)))} / {Math.max(0, selectedLcPo.items.reduce((s, it) => s + it.qty, 0) - (selectedLcCalc?.totalDispatchedQty || 0))} units</b></div>
                         </div>
 
                         <div className="space-y-3">
-                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Record Material Dispatch</div>
-                          
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b border-[#D8CFB8] pb-1">Record Dispatch</div>
+
                           <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
-                            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                            <table className="w-full text-left text-xs border-collapse min-w-[680px]">
                               <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
                                 <tr>
                                   <th className="p-2.5">PO Item</th>
                                   <th className="p-2.5 text-right font-mono">Produced</th>
                                   <th className="p-2.5 text-right font-mono">Dispatched</th>
-                                  <th className="p-2.5 text-right font-mono">Ready to Dispatch</th>
+                                  <th className="p-2.5 text-right font-mono">Ready Now</th>
                                   <th className="p-2.5 text-right font-mono">Qty Now</th>
+                                  <th className="p-2.5 text-right font-mono">Value Now</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-[#D8CFB8]">
@@ -1231,6 +1303,8 @@ export default function ClientPoPage() {
                                   const prodQ = stat?.productionQty || 0;
                                   const dispQ = stat?.dispatchedQty || 0;
                                   const maxDispatchable = Math.max(0, prodQ - dispQ);
+                                  const inputQty = Number(lcInputs[`disp_${it.itemIndex}`]) || 0;
+                                  const rowValue = inputQty * (it.unitPrice || 0);
 
                                   return (
                                     <tr key={it.id} className="hover:bg-[#FBF7EC]">
@@ -1249,15 +1323,19 @@ export default function ClientPoPage() {
                                           onChange={e => setLcInputs({ ...lcInputs, [`disp_${it.itemIndex}`]: e.target.value })}
                                         />
                                       </td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#1B2A41]">{fmt(rowValue)}</td>
                                     </tr>
                                   );
                                 })}
                               </tbody>
                               <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
                                 <tr>
-                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry — Qty:</td>
+                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry —</td>
                                   <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
-                                    {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`disp_${it.itemIndex}`]) || 0), 0)}
+                                    Qty: {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`disp_${it.itemIndex}`]) || 0), 0)}
+                                  </td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#B8862E]">
+                                    Amount: {fmt(selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`disp_${it.itemIndex}`]) || 0) * (it.unitPrice || 0), 0))}
                                   </td>
                                 </tr>
                               </tfoot>
@@ -1316,8 +1394,8 @@ export default function ClientPoPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2 pt-4 border-t">
-                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Dispatch Entries</div>
+                        <div className="space-y-2 pt-4 border-t border-[#D8CFB8]">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Dispatch Records</div>
                           <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
@@ -1354,26 +1432,26 @@ export default function ClientPoPage() {
                     {/* Tab 4: Dispatch Invoice */}
                     {activeStageTab === 'lcs-invoice' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
-                        <h4 className="font-serif font-semibold text-base">4 · Dispatch Invoicing & Billing</h4>
+                        <h4 className="font-serif font-semibold text-base text-[#1B2A41]">4 · Dispatch Invoice</h4>
                         <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
-                          <div>Dispatched Value: <b>{fmt(selectedLcCalc?.totalDispatchedValue)}</b></div>
-                          <div>Invoiced Value: <b>{fmt(selectedLcCalc?.totalInvoiceValue)}</b></div>
-                          <div className="text-[#A9432F]">Unbilled Dispatch: <b>{fmt(selectedLcCalc?.pendingBillingValue)} ({selectedLcCalc?.pendingBillingQty} units)</b></div>
-                          <div>Dispatch Receivable: <b>{fmt(selectedLcCalc?.outstandingAmount)}</b></div>
+                          <div>Total dispatched: <b>{fmt(selectedLcCalc?.totalDispatchedValue)} / {selectedLcCalc?.totalDispatchedQty} units</b></div>
+                          <div>Invoiced: <b>{fmt(selectedLcCalc?.totalInvoiceValue)} / {selectedLcCalc?.totalInvoicedQty} units</b></div>
+                          <div>Pending invoice: <b className="text-[#A9432F]">{fmt(selectedLcCalc?.pendingBillingValue)} / {selectedLcCalc?.pendingBillingQty} units</b></div>
                         </div>
 
                         <div className="space-y-3">
-                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Generate Dispatch Invoice</div>
-                          
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b border-[#D8CFB8] pb-1">Generate Invoice</div>
+
                           <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
-                            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                            <table className="w-full text-left text-xs border-collapse min-w-[680px]">
                               <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
                                 <tr>
                                   <th className="p-2.5">PO Item</th>
                                   <th className="p-2.5 text-right font-mono">Dispatched</th>
                                   <th className="p-2.5 text-right font-mono">Invoiced</th>
-                                  <th className="p-2.5 text-right font-mono">Pending Bill</th>
+                                  <th className="p-2.5 text-right font-mono">Pending</th>
                                   <th className="p-2.5 text-right font-mono">Qty Now</th>
+                                  <th className="p-2.5 text-right font-mono">Value Now</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-[#D8CFB8]">
@@ -1382,6 +1460,8 @@ export default function ClientPoPage() {
                                   const dispQ = stat?.dispatchedQty || 0;
                                   const invQ = stat?.invoicedQty || 0;
                                   const maxBilling = Math.max(0, dispQ - invQ);
+                                  const inputQty = Number(lcInputs[`inv_${it.itemIndex}`]) || 0;
+                                  const rowValue = inputQty * (it.unitPrice || 0);
 
                                   return (
                                     <tr key={it.id} className="hover:bg-[#FBF7EC]">
@@ -1400,15 +1480,19 @@ export default function ClientPoPage() {
                                           onChange={e => setLcInputs({ ...lcInputs, [`inv_${it.itemIndex}`]: e.target.value })}
                                         />
                                       </td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#1B2A41]">{fmt(rowValue)}</td>
                                     </tr>
                                   );
                                 })}
                               </tbody>
                               <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
                                 <tr>
-                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry — Qty:</td>
+                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry —</td>
                                   <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
-                                    {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`inv_${it.itemIndex}`]) || 0), 0)}
+                                    Qty: {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`inv_${it.itemIndex}`]) || 0), 0)}
+                                  </td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#B8862E]">
+                                    Amount: {fmt(selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`inv_${it.itemIndex}`]) || 0) * (it.unitPrice || 0), 0))}
                                   </td>
                                 </tr>
                               </tfoot>
@@ -1475,13 +1559,13 @@ export default function ClientPoPage() {
                                 });
                               }}
                             >
-                              + Generate Dispatch Invoice
+                              + Generate Invoice
                             </button>
                           </div>
                         </div>
 
-                        <div className="space-y-2 pt-4 border-t">
-                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Dispatch Invoices</div>
+                        <div className="space-y-2 pt-4 border-t border-[#D8CFB8]">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Invoices Raised</div>
                           <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
@@ -1489,21 +1573,23 @@ export default function ClientPoPage() {
                                 <th className="p-2 font-mono">Due Date</th>
                                 <th className="p-2 text-right">Qty</th>
                                 <th className="p-2 text-right">Value</th>
-                                <th className="p-2">Invoice Ref / Note</th>
+                                <th className="p-2 text-right">Outstanding</th>
+                                <th className="p-2">Timeline</th>
                                 <th className="p-2 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-[#D8CFB8]">
                               {selectedLcCalc?.lc.invoices.length === 0 ? (
-                                <tr><td colSpan={6} className="p-3 text-center text-gray-500">No dispatch invoices generated yet.</td></tr>
+                                <tr><td colSpan={7} className="p-3 text-center text-gray-500">No dispatch invoices generated yet.</td></tr>
                               ) : (
-                                selectedLcCalc?.lc.invoices.map(r => (
+                                selectedLcCalc?.invoiceAging.map(r => (
                                   <tr key={r.id}>
                                     <td className="p-2 font-mono">{r.date}</td>
                                     <td className="p-2 font-mono">{r.dueDate || '—'}</td>
                                     <td className="p-2 font-mono text-right">{r.qty}</td>
                                     <td className="p-2 font-mono text-right font-bold text-[#1B2A41]">{fmt(r.value)}</td>
-                                    <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
+                                    <td className="p-2 font-mono text-right font-bold text-[#A9432F]">{r.outstanding > 0.5 ? fmt(r.outstanding) : 'Paid'}</td>
+                                    <td className="p-2 text-[11px]">{r.timeline ? `${r.timeline.status} ${r.timeline.days ? '(' + r.timeline.days + 'd)' : ''}` : '—'}</td>
                                     <td className="p-2 text-right space-x-2">
                                       <button className="text-[#1B2A41] font-semibold text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, 'invoices', r, selectedLcPo.items)}>Edit</button>
                                       <button className="text-[#A9432F] font-semibold text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, 'invoices', r.id)}>Del</button>
@@ -1520,17 +1606,17 @@ export default function ClientPoPage() {
                     {/* Tab 5: Installation */}
                     {activeStageTab === 'lcs-install' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
-                        <h4 className="font-serif font-semibold text-base">5 · Installation Progress</h4>
+                        <h4 className="font-serif font-semibold text-base text-[#1B2A41]">5 · Installation</h4>
                         <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
-                          <div>Total Dispatched: <b>{selectedLcCalc?.totalDispatchedQty || 0} units</b></div>
-                          <div>Installed Qty: <b>{selectedLcCalc?.installedQty || 0} units</b></div>
-                          <div>Remaining to Install: <b>{selectedLcCalc?.remainingInstallQty || 0} units</b></div>
+                          <div>Dispatched: <b>{selectedLcCalc?.totalDispatchedQty || 0} units</b></div>
+                          <div>Installed: <b>{selectedLcCalc?.installedQty || 0} units</b></div>
                           <div>Progress: <b>{Math.round((selectedLcCalc?.installationProgress || 0) * 100)}%</b></div>
+                          <div>Remaining: <b>{selectedLcCalc?.remainingInstallQty || 0} units</b></div>
                         </div>
 
                         <div className="space-y-3">
-                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Record Installation Progress</div>
-                          
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b border-[#D8CFB8] pb-1">Record Installation Progress</div>
+
                           <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
                             <table className="w-full text-left text-xs border-collapse min-w-[650px]">
                               <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
@@ -1570,14 +1656,6 @@ export default function ClientPoPage() {
                                   );
                                 })}
                               </tbody>
-                              <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
-                                <tr>
-                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry — Qty:</td>
-                                  <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
-                                    {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`inst_${it.itemIndex}`]) || 0), 0)}
-                                  </td>
-                                </tr>
-                              </tfoot>
                             </table>
                           </div>
 
@@ -1590,7 +1668,7 @@ export default function ClientPoPage() {
                             />
                             <input
                               type="text"
-                              placeholder="Site Engineer / Note"
+                              placeholder="Note / Engineer"
                               className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs flex-1"
                               value={lcInputs['inst_note'] || ''}
                               onChange={e => setLcInputs({ ...lcInputs, inst_note: e.target.value })}
@@ -1631,8 +1709,8 @@ export default function ClientPoPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2 pt-4 border-t">
-                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Installation Entries</div>
+                        <div className="space-y-2 pt-4 border-t border-[#D8CFB8]">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Installation Records</div>
                           <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
@@ -1667,64 +1745,149 @@ export default function ClientPoPage() {
                     {/* Tab 6: Install Invoice */}
                     {activeStageTab === 'lcs-install-invoice' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
-                        <h4 className="font-serif font-semibold text-base">6 · Installation Invoicing</h4>
-                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
-                          <div>Milestone Target: <b>{fmt(selectedLcCalc?.installTargetValue)}</b></div>
-                          <div>Invoiced: <b>{fmt(selectedLcCalc?.manualInstallationBilling)}</b></div>
-                          <div>Received: <b>{fmt(selectedLcCalc?.manualInstallationPayments)}</b></div>
-                          <div className="text-[#A9432F]">Outstanding: <b>{fmt(selectedLcCalc?.installationOutstanding)}</b></div>
+                        <h4 className="font-serif font-semibold text-base text-[#1B2A41]">6 · Installation Invoice</h4>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
+                          <div>Billable (install milestone, on dispatched value): <b>{fmt(selectedLcCalc?.installTargetValue)}</b></div>
+                          <div>Eligible per payment milestone: <b>{fmt(selectedLcCalc?.installEligibleValue)}</b></div>
+                          <div>Formally invoiced: <b>{fmt(selectedLcCalc?.manualInstallationBilling)}</b></div>
+                          <div>Earned, not yet invoiced: <b>{fmt(selectedLcCalc?.unbilledAccrued)}</b></div>
+                          <div>Outstanding: <b className="text-[#A9432F]">{fmt(selectedLcCalc?.installationOutstanding)}</b></div>
                         </div>
 
+                        {(selectedLcCalc?.installMilestoneValueOnPO || 0) > 0 && (
+                          <div className="text-[11px] text-gray-600 italic bg-[#F6F2E9]/60 p-2.5 rounded border border-[#D8CFB8]">
+                            Eligible per payment milestone = (Advance Received ÷ Required Advance) × Installation Milestone Value = ({fmt(selectedLcCalc?.totalAdvanceReceived)} ÷ {fmt(selectedLcCalc?.advanceTargetValue)}) × {fmt(selectedLcCalc?.installMilestoneValueOnPO)} = <b>{Math.round((selectedLcCalc?.advanceRatio || 0) * 1000) / 10}%</b> unlocked so far. Actual invoicing is still capped by what's been physically installed.
+                          </div>
+                        )}
+
                         <div className="space-y-3">
-                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Generate Installation Invoice</div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                            <input
-                              type="number"
-                              placeholder="Billing Value ₹"
-                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs font-mono"
-                              value={lcInputs['iinv_value'] || ''}
-                              onChange={e => setLcInputs({ ...lcInputs, iinv_value: e.target.value })}
-                            />
-                            <input
-                              type="date"
-                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
-                              value={lcInputs['iinv_date'] || todayISO()}
-                              onChange={e => setLcInputs({ ...lcInputs, iinv_date: e.target.value })}
-                            />
-                            <input
-                              type="date"
-                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
-                              value={lcInputs['iinv_dueDate'] || addDays(lcInputs['iinv_date'] || todayISO(), selectedLcPo.creditDays || 30) || ''}
-                              onChange={e => setLcInputs({ ...lcInputs, iinv_dueDate: e.target.value })}
-                            />
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b border-[#D8CFB8] pb-1">Generate Installation Invoice</div>
+
+                          <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
+                            <table className="w-full text-left text-xs border-collapse min-w-[680px]">
+                              <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
+                                <tr>
+                                  <th className="p-2.5">PO Item</th>
+                                  <th className="p-2.5 text-right font-mono">Installed</th>
+                                  <th className="p-2.5 text-right font-mono">Invoiced</th>
+                                  <th className="p-2.5 text-right font-mono">Pending</th>
+                                  <th className="p-2.5 text-right font-mono">Qty Now</th>
+                                  <th className="p-2.5 text-right font-mono">Value Now</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#D8CFB8]">
+                                {selectedLcPo.items.map(it => {
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const instQ = stat?.installedQty || 0;
+                                  const invQ = stat?.installInvoicedQty || 0;
+                                  const maxBilling = Math.max(0, instQ - invQ);
+                                  const inputQty = Number(lcInputs[`iinv_${it.itemIndex}`]) || 0;
+                                  const rowValue = inputQty * (it.unitPrice || 0);
+
+                                  return (
+                                    <tr key={it.id} className="hover:bg-[#FBF7EC]">
+                                      <td className="p-2.5 font-semibold text-[#1B2A41]">{it.desc}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold">{instQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#3F6E4E]">{invQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-bold text-[#B8862E]">{maxBilling}</td>
+                                      <td className="p-2.5 text-right">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={maxBilling}
+                                          placeholder="0"
+                                          className="w-24 bg-white border border-[#D8CFB8] px-2.5 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E] focus:outline-none"
+                                          value={lcInputs[`iinv_${it.itemIndex}`] || ''}
+                                          onChange={e => setLcInputs({ ...lcInputs, [`iinv_${it.itemIndex}`]: e.target.value })}
+                                        />
+                                      </td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#1B2A41]">{fmt(rowValue)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
+                                <tr>
+                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry —</td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
+                                    Qty: {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`iinv_${it.itemIndex}`]) || 0), 0)}
+                                  </td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#B8862E]">
+                                    Amount: {fmt(selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`iinv_${it.itemIndex}`]) || 0) * (it.unitPrice || 0), 0))}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 items-center pt-2">
+                            <div className="flex items-center gap-1 text-xs">
+                              <span className="text-gray-600 font-semibold">Inv Date:</span>
+                              <input
+                                type="date"
+                                className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                                value={lcInputs['iinv_date'] || todayISO()}
+                                onChange={e => setLcInputs({ ...lcInputs, iinv_date: e.target.value })}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 text-xs">
+                              <span className="text-gray-600 font-semibold">Due Date:</span>
+                              <input
+                                type="date"
+                                className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                                value={lcInputs['iinv_dueDate'] || addDays(lcInputs['iinv_date'] || todayISO(), selectedLcPo.creditDays || 30) || ''}
+                                onChange={e => setLcInputs({ ...lcInputs, iinv_dueDate: e.target.value })}
+                              />
+                            </div>
                             <input
                               type="text"
                               placeholder="Cert / Bill Ref / Note"
-                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs flex-1"
                               value={lcInputs['iinv_note'] || ''}
                               onChange={e => setLcInputs({ ...lcInputs, iinv_note: e.target.value })}
                             />
+                            <button
+                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs shadow-sm"
+                              onClick={() => {
+                                let val = 0, q = 0;
+                                let overLimitErr = '';
+
+                                const allocs = selectedLcPo.items.map(it => {
+                                  const itemQty = Number(lcInputs[`iinv_${it.itemIndex}`]) || 0;
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const instQ = stat?.installedQty || 0;
+                                  const invQ = stat?.installInvoicedQty || 0;
+                                  const maxBilling = Math.max(0, instQ - invQ);
+
+                                  if (itemQty > maxBilling) {
+                                    overLimitErr = `Item "${it.desc}": Installation invoice qty (${itemQty}) exceeds unbilled installed quantity (${maxBilling}).`;
+                                  }
+                                  val += itemQty * it.unitPrice;
+                                  q += itemQty;
+                                  return { itemIndex: it.itemIndex, qty: itemQty };
+                                }).filter(a => a.qty > 0);
+
+                                if (overLimitErr) { alert(overLimitErr); return; }
+                                if (allocs.length === 0) { alert('Enter qty to invoice for at least one item.'); return; }
+
+                                submitStageTransaction(selectedLcPo.id, 'install-invoice', {
+                                  qty: q,
+                                  value: val,
+                                  date: lcInputs['iinv_date'] || todayISO(),
+                                  dueDate: lcInputs['iinv_dueDate'] || addDays(lcInputs['iinv_date'] || todayISO(), selectedLcPo.creditDays || 30),
+                                  note: lcInputs['iinv_note'] || '',
+                                  allocations: allocs
+                                });
+                              }}
+                            >
+                              + Generate Installation Invoice
+                            </button>
                           </div>
-                          <button
-                            className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
-                            onClick={() => {
-                              const val = Number(lcInputs['iinv_value']) || 0;
-                              if (val <= 0) { alert('Enter valid billing value.'); return; }
-                              submitStageTransaction(selectedLcPo.id, 'install-invoice', {
-                                value: val,
-                                date: lcInputs['iinv_date'] || todayISO(),
-                                dueDate: lcInputs['iinv_dueDate'] || addDays(lcInputs['iinv_date'] || todayISO(), selectedLcPo.creditDays || 30),
-                                note: lcInputs['iinv_note'] || ''
-                              });
-                            }}
-                          >
-                            + Generate Installation Invoice
-                          </button>
                         </div>
 
-                        <div className="space-y-2 pt-4 border-t">
-                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Installation Invoices</div>
-                          <table className="w-full text-left text-xs">
+                        <div className="space-y-2 pt-4 border-t border-[#D8CFB8]">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Installation Invoices</div>
+                          <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
                                 <th className="p-2">Date</th>
@@ -1760,128 +1923,154 @@ export default function ClientPoPage() {
                     {/* Tab 7: Retention */}
                     {activeStageTab === 'lcs-retention' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
-                        <h4 className="font-serif font-semibold text-base">7 · Retention Period & Clearance</h4>
-                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                        <h4 className="font-serif font-semibold text-base text-[#1B2A41] flex items-center justify-between">
+                          <span>7 · Retention</span>
+                          {selectedLcCalc?.retention.started && !selectedLcCalc?.retention.released && (
+                            <button
+                              className="bg-[#3F6E4E] hover:bg-[#2e5239] text-white px-3 py-1 rounded text-xs font-semibold"
+                              onClick={() => submitStageTransaction(selectedLcPo.id, 'retention-release', {})}
+                            >
+                              Mark Retention Released
+                            </button>
+                          )}
+                        </h4>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
                           <div>Retention Target: <b>{fmt(selectedLcCalc?.retentionTargetValue)}</b></div>
-                          <div>Period Duration: <b>{selectedLcCalc?.retention.periodMonths || selectedLcPo.retentionMonths || 12} months</b></div>
+                          <div>Retention Due: <b>{fmt(selectedLcCalc?.retention.started ? selectedLcCalc.retention.amount : selectedLcCalc?.retentionTargetValue)}</b></div>
                           <div>Status: <b className={selectedLcCalc?.retention.released ? 'text-[#3F6E4E]' : selectedLcCalc?.retention.started ? 'text-[#B8862E]' : 'text-gray-500'}>
                             {selectedLcCalc?.retention.released ? 'Released' : selectedLcCalc?.retention.started ? 'Active (Held)' : 'Pending Contract Completion'}
                           </b></div>
-                          {selectedLcCalc?.retention.releaseDate && <div>Due Release Date: <b>{selectedLcCalc.retention.releaseDate}</b></div>}
-                        </div>
-
-                        <div className="flex items-center gap-3 pt-2">
-                          {selectedLcCalc?.retention.started && !selectedLcCalc?.retention.released && (
-                            <button
-                              className="bg-[#3F6E4E] hover:bg-[#2e5239] text-white px-4 py-2 rounded font-semibold text-xs transition-colors"
-                              onClick={() => submitStageTransaction(selectedLcPo.id, 'retention-release', {})}
-                            >
-                              ✓ Release Retention Amount ({fmt(selectedLcCalc?.retention.amount)})
-                            </button>
-                          )}
-                          {!selectedLcCalc?.retention.started && (
-                            <p className="text-xs text-[#3A4A63]">Retention period automatically activates when all dispatch, invoicing, and installation conditions are fulfilled.</p>
-                          )}
+                          {selectedLcCalc?.retention.releaseDate && <div>Release Due Date: <b>{selectedLcCalc.retention.releaseDate}</b></div>}
                         </div>
                       </div>
                     )}
 
-                    {/* Customer Payment Panel */}
-                    <div className="bg-[#1B2A41] text-[#EDE6D6] p-5 rounded-lg shadow-md border-t-4 border-t-[#B8862E] space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-                        <div className="font-serif font-bold text-base text-white flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#B8862E] text-white flex items-center justify-center font-bold text-xs">₹</span>
-                          Customer Payment Drawer
+                    {/* Customer Payment Standalone Drawer */}
+                    <div className="bg-[#1B2A41] text-[#EDE6D6] rounded-xl shadow-xl overflow-hidden border-2 border-[#B8862E] mt-8">
+                      <div className="p-4 bg-[#142032] border-b border-white/10 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="w-7 h-7 rounded-full bg-[#B8862E] text-white flex items-center justify-center font-bold text-sm">₹</span>
+                          <div>
+                            <h3 className="font-serif font-bold text-base text-white">Customer Payment</h3>
+                            <p className="text-[11px] text-gray-300">single entry form for Advance · Dispatch · Installation · Retention</p>
+                          </div>
                         </div>
-                        <div className="flex gap-4 text-xs font-mono text-[#E4C583]">
-                          <span>Dispatch Outstanding: <b>{fmt(selectedLcCalc?.outstandingAmount)}</b></span>
-                          <span>Install Outstanding: <b>{fmt(selectedLcCalc?.installationOutstanding)}</b></span>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono">
+                          <div>Dispatch outstanding: <b className="text-[#F4A68D]">{fmt(selectedLcCalc?.outstandingAmount)}</b></div>
+                          {selectedLcCalc?.installBillingApplicable && (
+                            <div>Installation outstanding: <b className="text-[#F4A68D]">{fmt(selectedLcCalc?.installationOutstanding)}</b></div>
+                          )}
+                          <div>Retention due: <b className="text-[#F4A68D]">{fmt(selectedLcCalc?.retentionTargetValue && selectedLcCalc?.retention?.started ? Math.max(0, selectedLcCalc.retentionTargetValue - (selectedLcCalc.totalDispatchPayments || 0)) : 0)}</b></div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                        <div className="space-y-3 bg-white/5 p-4 rounded border border-white/10">
-                          <div className="font-semibold text-white">Record Customer Receipt</div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              type="date"
-                              className="bg-white/10 border border-white/20 px-3 py-1.5 rounded text-white"
-                              value={lcInputs['pay_date'] || todayISO()}
-                              onChange={e => setLcInputs({ ...lcInputs, pay_date: e.target.value })}
-                            />
-                            <select
-                              className="bg-white/10 border border-white/20 px-3 py-1.5 rounded text-white"
-                              value={lcInputs['pay_type'] || 'dispatch'}
-                              onChange={e => setLcInputs({ ...lcInputs, pay_type: e.target.value })}
-                            >
-                              <option value="dispatch" className="text-black">Against Dispatch</option>
-                              <option value="advance" className="text-black">Against Advance</option>
-                              <option value="installation" className="text-black">Against Installation</option>
-                              <option value="retention" className="text-black">Against Retention</option>
-                            </select>
+                      <div className="p-5 grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* Left Form Pane */}
+                        <div className="lg:col-span-7 space-y-4">
+                          <div className="bg-white/5 border border-white/10 p-3 rounded text-xs font-mono flex flex-wrap gap-4 text-gray-200">
+                            {(lcInputs['pay_type'] || 'dispatch') === 'advance' && (
+                              <>
+                                <div>Required: <b className="text-white">{fmt(selectedLcCalc?.advanceTargetValue)}</b></div>
+                                <div>Received: <b className="text-[#A5D6A7]">{fmt(selectedLcCalc?.totalAdvanceReceived)}</b></div>
+                                <div>Pending: <b className="text-[#F4A68D]">{fmt(selectedLcCalc?.pendingAdvance)}</b></div>
+                              </>
+                            )}
+                            {(lcInputs['pay_type'] || 'dispatch') === 'dispatch' && (
+                              <>
+                                <div>Invoiced: <b className="text-white">{fmt(selectedLcCalc?.totalInvoiceValue)}</b></div>
+                                <div>Advance adj.: <b className="text-[#A5D6A7]">{fmt(Math.min(selectedLcCalc?.totalAdvanceReceived || 0, selectedLcCalc?.totalInvoiceValue || 0))}</b></div>
+                                <div>Outstanding: <b className="text-[#F4A68D]">{fmt(selectedLcCalc?.outstandingAmount)}</b></div>
+                              </>
+                            )}
+                            {(lcInputs['pay_type'] || 'dispatch') === 'installation' && (
+                              <>
+                                <div>Billed: <b className="text-white">{fmt(selectedLcCalc?.manualInstallationBilling || selectedLcCalc?.installTargetValue)}</b></div>
+                                <div>Received: <b className="text-[#A5D6A7]">{fmt(selectedLcCalc?.manualInstallationPayments)}</b></div>
+                                <div>Outstanding: <b className="text-[#F4A68D]">{fmt(selectedLcCalc?.installationOutstanding)}</b></div>
+                              </>
+                            )}
+                            {(lcInputs['pay_type'] || 'dispatch') === 'retention' && (
+                              <>
+                                <div>Due: <b className="text-white">{fmt(selectedLcCalc?.retentionTargetValue)}</b></div>
+                                <div>Received: <b className="text-[#A5D6A7]">₹0</b></div>
+                                <div>Outstanding: <b className="text-[#F4A68D]">{fmt(selectedLcCalc?.retentionTargetValue)}</b></div>
+                              </>
+                            )}
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              type="number"
-                              placeholder="Amount ₹"
-                              className="bg-white/10 border border-white/20 px-3 py-1.5 rounded text-white font-mono"
-                              value={lcInputs['pay_amount'] || ''}
-                              onChange={e => setLcInputs({ ...lcInputs, pay_amount: e.target.value })}
-                            />
-                            <input
-                              type="text"
-                              placeholder="Ref / Cheque / UTR"
-                              className="bg-white/10 border border-white/20 px-3 py-1.5 rounded text-white"
-                              value={lcInputs['pay_ref'] || ''}
-                              onChange={e => setLcInputs({ ...lcInputs, pay_ref: e.target.value })}
-                            />
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div>
+                              <label className="block text-gray-300 font-semibold mb-1">Payment Date</label>
+                              <input
+                                type="date"
+                                className="w-full bg-white/10 border border-white/20 p-2 rounded text-white text-xs focus:outline-none focus:border-[#B8862E]"
+                                value={lcInputs['pay_date'] || todayISO()}
+                                onChange={e => setLcInputs({ ...lcInputs, pay_date: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-300 font-semibold mb-1">Against / Payment Type</label>
+                              <select
+                                className="w-full bg-[#142032] border border-white/20 p-2 rounded text-white text-xs focus:outline-none focus:border-[#B8862E]"
+                                value={lcInputs['pay_type'] || 'dispatch'}
+                                onChange={e => setLcInputs({ ...lcInputs, pay_type: e.target.value })}
+                              >
+                                <option value="dispatch">Against Dispatch Invoice</option>
+                                <option value="advance">Against Advance</option>
+                                <option value="installation">Against Installation</option>
+                                <option value="retention">Against Retention</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-gray-300 font-semibold mb-1">Invoice / Reference No</label>
+                              <input
+                                type="text"
+                                placeholder="Invoice / Ref No"
+                                className="w-full bg-white/10 border border-white/20 p-2 rounded text-white text-xs focus:outline-none focus:border-[#B8862E]"
+                                value={lcInputs['pay_ref'] || ''}
+                                onChange={e => setLcInputs({ ...lcInputs, pay_ref: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-300 font-semibold mb-1">Amount (₹)</label>
+                              <input
+                                type="number"
+                                placeholder="0"
+                                className="w-full bg-white/10 border border-white/20 p-2 rounded text-white font-mono text-xs focus:outline-none focus:border-[#B8862E]"
+                                value={lcInputs['pay_amount'] || ''}
+                                onChange={e => setLcInputs({ ...lcInputs, pay_amount: e.target.value })}
+                              />
+                            </div>
                           </div>
+
                           <button
-                            className="w-full bg-[#B8862E] hover:bg-[#a07425] text-white py-2 rounded font-semibold text-xs transition-colors"
+                            className="w-full bg-[#B8862E] hover:bg-[#a07425] text-white font-bold py-2.5 rounded text-xs transition-colors shadow-md"
                             onClick={() => {
                               const amt = Number(lcInputs['pay_amount']) || 0;
-                              if (amt <= 0) { alert('Enter valid payment amount'); return; }
-                              submitStageTransaction(selectedLcPo.id, 'payment', {
-                                amount: amt,
-                                type: lcInputs['pay_type'] || 'dispatch',
-                                date: lcInputs['pay_date'] || todayISO(),
-                                ref: lcInputs['pay_ref'] || '',
-                                note: lcInputs['pay_note'] || ''
-                              });
+                              const pType = lcInputs['pay_type'] || 'dispatch';
+
+                              if (amt <= 0) { alert('Enter valid payment amount.'); return; }
+
+                              if (pType === 'advance') {
+                                submitStageTransaction(selectedLcPo.id, 'advance', {
+                                  amount: amt,
+                                  date: lcInputs['pay_date'] || todayISO(),
+                                  ref: lcInputs['pay_ref'] || '',
+                                  note: lcInputs['pay_note'] || ''
+                                });
+                              } else {
+                                submitStageTransaction(selectedLcPo.id, 'payment', {
+                                  amount: amt,
+                                  type: pType,
+                                  date: lcInputs['pay_date'] || todayISO(),
+                                  ref: lcInputs['pay_ref'] || '',
+                                  note: lcInputs['pay_note'] || ''
+                                });
+                              }
                             }}
                           >
                             + Record Payment Receipt
                           </button>
-                        </div>
-
-                        <div className="space-y-2 bg-white/5 p-4 rounded border border-white/10 overflow-y-auto max-h-60">
-                          <div className="font-semibold text-white uppercase text-[10px] tracking-wider text-gray-400">Payment History Ledger</div>
-                          <table className="w-full text-left text-xs">
-                            <thead className="text-gray-400 text-[10px] uppercase border-b border-white/10">
-                              <tr>
-                                <th className="p-1">Date</th>
-                                <th className="p-1">Type</th>
-                                <th className="p-1 text-right">Amount</th>
-                                <th className="p-1 text-right">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/10">
-                              {[
-                                ...selectedLcCalc?.lc.advancePayments.map(p => ({ ...p, against: 'Advance', srcArr: 'advancePayments' })) || [],
-                                ...selectedLcCalc?.lc.customerPayments.map(p => ({ ...p, against: p.type || 'dispatch', srcArr: 'customerPayments' })) || []
-                              ].map(r => (
-                                <tr key={r.id}>
-                                  <td className="p-1.5 font-mono">{r.date}</td>
-                                  <td className="p-1.5"><span className="bg-[#B8862E]/20 text-[#E4C583] px-2 py-0.5 rounded text-[10px]">{r.against}</span></td>
-                                  <td className="p-1.5 font-mono text-right font-bold text-white">{fmt(r.amount)}</td>
-                                  <td className="p-1.5 text-right space-x-2">
-                                    <button className="text-[#E4C583] text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, r.srcArr, r)}>Edit</button>
-                                    <button className="text-red-400 text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, r.srcArr, r.id)}>Del</button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
                         </div>
                       </div>
                     </div>

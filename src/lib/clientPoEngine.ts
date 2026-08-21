@@ -373,9 +373,13 @@ export function computeLifecycle(po: ClientPoGraph) {
   const manualInstallationBilling = installInvoices.reduce((s, i) => s + (i.value || 0), 0);
   const manualInstallationPayments = installPayments.reduce((s, p) => s + (p.amount || 0), 0);
 
+  let dispatchMilestoneTarget = 0;
   let installMilestoneTarget = 0;
   milestones.forEach(m => {
-    if (classifyMilestone(m.label) === 'Post-installation') {
+    const cat = classifyMilestone(m.label);
+    if (cat === 'Post-delivery') {
+      dispatchMilestoneTarget += milestoneTarget(m, totalPOValue);
+    } else if (cat === 'Post-installation') {
       installMilestoneTarget += milestoneTarget(m, totalPOValue);
     }
   });
@@ -384,8 +388,12 @@ export function computeLifecycle(po: ClientPoGraph) {
   const installBillingApplicable = installMilestoneTarget > 0 || manualInstallationBilling > 0;
   const installationOutstanding = installBillingApplicable ? Math.max(0, (manualInstallationBilling || installTargetValue) - manualInstallationPayments) : 0;
 
+  const productionAdvancePending = Math.max(0, totalProductionValue - totalAdvanceReceived);
+  const installEligibleValue = advanceTargetValue > 0 ? (totalAdvanceReceived / advanceTargetValue) * installMilestoneTarget : 0;
+  const unbilledAccrued = Math.max(0, installTargetValue - manualInstallationBilling);
+
   const itemStats = items.map(it => {
-    let prodQ = 0, dispQ = 0, invQ = 0, instQ = 0;
+    let prodQ = 0, dispQ = 0, invQ = 0, instQ = 0, instInvQ = 0;
 
     productions.forEach(p => {
       (p.allocations || []).forEach(a => {
@@ -411,6 +419,12 @@ export function computeLifecycle(po: ClientPoGraph) {
       });
     });
 
+    installInvoices.forEach(iinv => {
+      (iinv.allocations || []).forEach(a => {
+        if (a.itemIndex === it.itemIndex || a.itemId === it.id) instInvQ += a.qty || 0;
+      });
+    });
+
     return {
       id: it.id,
       index: it.itemIndex,
@@ -421,10 +435,12 @@ export function computeLifecycle(po: ClientPoGraph) {
       dispatchedQty: dispQ,
       invoicedQty: invQ,
       installedQty: instQ,
+      installInvoicedQty: instInvQ,
       remainingProdCapacityQtyForItem: Math.max(0, it.qty - prodQ),
       readyQtyForItem: Math.max(0, prodQ - dispQ),
       pendingInvoiceQty: Math.max(0, dispQ - invQ),
-      eligibleForInstallQty: Math.max(0, dispQ - instQ)
+      eligibleForInstallQty: Math.max(0, dispQ - instQ),
+      pendingInstallInvoiceQty: Math.max(0, instQ - instInvQ)
     };
   });
 
@@ -524,6 +540,8 @@ export function computeLifecycle(po: ClientPoGraph) {
     advanceConsumedByProduction,
     availableAdvanceBalance,
     remainingProductionCapacity,
+    dispMilestoneValue: dispatchMilestoneTarget,
+    productionAdvancePending,
     totalDispatchedQty,
     totalDispatchedValue,
     readyForDispatchQty,
@@ -538,8 +556,11 @@ export function computeLifecycle(po: ClientPoGraph) {
     remainingInstallQty,
     installationProgress,
     installTargetValue,
+    installEligibleValue,
+    installMilestoneValueOnPO: installMilestoneTarget,
     manualInstallationBilling,
     manualInstallationPayments,
+    unbilledAccrued,
     installBillingApplicable,
     installationOutstanding,
     itemStats,
