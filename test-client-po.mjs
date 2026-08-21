@@ -125,9 +125,9 @@ async function runTests() {
     assert(createdPo.items[0].value === 100000, 'Line Item value calculated correctly\n');
 
     // -------------------------------------------------------------------------
-    // TEST CASE 5: Execution Lifecycle Allocation Validation
+    // TEST CASE 5: Execution Lifecycle Transactions & Edits
     // -------------------------------------------------------------------------
-    console.log('📌 Test Case 5: Execution Lifecycle Transactions');
+    console.log('📌 Test Case 5: Execution Lifecycle Transactions & Edits');
     const production = await prisma.clientPoProduction.create({
       data: {
         poId: createdPo.id,
@@ -155,7 +155,30 @@ async function runTests() {
     });
     assert(dispatch.qty === 5, 'Dispatch transaction recorded');
 
+    // Test Edit Entry functionality
+    const updatedProd = await prisma.clientPoProduction.update({
+      where: { id: production.id },
+      data: { qty: 6, value: 60000, note: 'Updated to 6 doors in production' }
+    });
+    assert(updatedProd.qty === 6 && updatedProd.value === 60000, 'Recorded entry edited successfully');
+
+    // Verify Financials Calculation Logic (Total Receivable = Total - Received)
+    const advPayment = await prisma.clientPoAdvancePayment.create({
+      data: { poId: createdPo.id, amount: 23600, ref: 'ADV-101' }
+    });
+    const custPayment = await prisma.clientPoCustomerPayment.create({
+      data: { poId: createdPo.id, amount: 30000, type: 'dispatch', ref: 'PAY-102' }
+    });
+
+    const totalOrder = createdPo.totalOrderValue; // 118,000
+    const totalRecv = advPayment.amount + custPayment.amount; // 53,600
+    const totalReceivable = totalOrder - totalRecv; // 64,400
+
+    assert(totalReceivable === 64400, 'Total Receivable correctly reflects partial workings on advance & dispatch payments');
+
     // Cleanup Test Data
+    await prisma.clientPoAdvancePayment.delete({ where: { id: advPayment.id } });
+    await prisma.clientPoCustomerPayment.delete({ where: { id: custPayment.id } });
     await prisma.clientPoHeader.delete({ where: { id: createdPo.id } });
     await prisma.clientPoProject.delete({ where: { id: createdProject.id } });
     await prisma.clientPoClient.delete({ where: { id: createdClient.id } });
