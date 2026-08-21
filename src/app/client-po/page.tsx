@@ -1058,7 +1058,7 @@ export default function ClientPoPage() {
                     {activeStageTab === 'lcs-production' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
                         <h4 className="font-serif font-semibold text-base">2 · Sent for Production</h4>
-                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
                           <div>Eligible Production: <b>{fmt(selectedLcCalc?.productionEligibleValue)} ({selectedLcCalc?.productionEligibleQty} units)</b></div>
                           <div>In Production: <b>{fmt(selectedLcCalc?.totalProductionValue)} ({selectedLcCalc?.totalProductionQty} units)</b></div>
                           <div>Remaining Capacity: <b>{fmt(selectedLcCalc?.remainingProductionCapacity)}</b></div>
@@ -1066,27 +1066,56 @@ export default function ClientPoPage() {
 
                         <div className="space-y-3">
                           <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Release Quantity for Production</div>
-                          <div className="space-y-2">
-                            {selectedLcPo.items.map(it => {
-                              const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
-                              const maxRemaining = stat?.remainingProdCapacityQtyForItem ?? (it.qty - (stat?.productionQty || 0));
-                              return (
-                                <div key={it.id} className="flex flex-wrap items-center justify-between text-xs p-2 bg-[#F6F2E9] rounded gap-2">
-                                  <div className="font-semibold text-[#1B2A41] flex-1">{it.desc}</div>
-                                  <div className="font-mono text-gray-600">Ordered: <b>{it.qty}</b> · In Prod: <b>{stat?.productionQty || 0}</b> · <span className="text-[#B8862E]">Remaining Max: <b>{maxRemaining}</b></span></div>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={maxRemaining}
-                                    placeholder="Qty now"
-                                    className="w-24 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E]"
-                                    value={lcInputs[`prod_${it.itemIndex}`] || ''}
-                                    onChange={e => setLcInputs({ ...lcInputs, [`prod_${it.itemIndex}`]: e.target.value })}
-                                  />
-                                </div>
-                              );
-                            })}
+                          
+                          <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
+                            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                              <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
+                                <tr>
+                                  <th className="p-2.5">PO Item</th>
+                                  <th className="p-2.5 text-right font-mono">Ordered</th>
+                                  <th className="p-2.5 text-right font-mono">In Production</th>
+                                  <th className="p-2.5 text-right font-mono">Remaining Max</th>
+                                  <th className="p-2.5 text-right font-mono">Qty Now</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#D8CFB8]">
+                                {selectedLcPo.items.map(it => {
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const prodQ = stat?.productionQty || 0;
+                                  const maxRemaining = Math.max(0, it.qty - prodQ);
+
+                                  return (
+                                    <tr key={it.id} className="hover:bg-[#FBF7EC]">
+                                      <td className="p-2.5 font-semibold text-[#1B2A41]">{it.desc}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold">{it.qty}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#3F6E4E]">{prodQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-bold text-[#B8862E]">{maxRemaining}</td>
+                                      <td className="p-2.5 text-right">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={maxRemaining}
+                                          placeholder="0"
+                                          className="w-24 bg-white border border-[#D8CFB8] px-2.5 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E] focus:outline-none"
+                                          value={lcInputs[`prod_${it.itemIndex}`] || ''}
+                                          onChange={e => setLcInputs({ ...lcInputs, [`prod_${it.itemIndex}`]: e.target.value })}
+                                        />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
+                                <tr>
+                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry — Qty:</td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
+                                    {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`prod_${it.itemIndex}`]) || 0), 0)}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
                           </div>
+
                           <div className="flex gap-2 items-center pt-2">
                             <input
                               type="date"
@@ -1102,15 +1131,16 @@ export default function ClientPoPage() {
                               onChange={e => setLcInputs({ ...lcInputs, prod_note: e.target.value })}
                             />
                             <button
-                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
+                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs shadow-sm"
                               onClick={() => {
                                 let val = 0, q = 0;
                                 let overLimitErr = '';
 
                                 const allocs = selectedLcPo.items.map(it => {
                                   const itemQty = Number(lcInputs[`prod_${it.itemIndex}`]) || 0;
-                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
-                                  const maxRemaining = stat?.remainingProdCapacityQtyForItem ?? (it.qty - (stat?.productionQty || 0));
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const prodQ = stat?.productionQty || 0;
+                                  const maxRemaining = Math.max(0, it.qty - prodQ);
 
                                   if (itemQty > maxRemaining) {
                                     overLimitErr = `Item "${it.desc}": Input quantity (${itemQty}) exceeds maximum remaining ordered quantity (${maxRemaining}).`;
@@ -1139,7 +1169,7 @@ export default function ClientPoPage() {
 
                         <div className="space-y-2 pt-4 border-t">
                           <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Production Entries</div>
-                          <table className="w-full text-left text-xs">
+                          <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
                                 <th className="p-2">Date</th>
@@ -1176,34 +1206,64 @@ export default function ClientPoPage() {
                     {activeStageTab === 'lcs-dispatch' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
                         <h4 className="font-serif font-semibold text-base">3 · Material Dispatch</h4>
-                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
                           <div>Ready for Dispatch: <b>{fmt(selectedLcCalc?.readyForDispatchValue)} ({selectedLcCalc?.readyForDispatchQty} units)</b></div>
                           <div>Total Dispatched: <b>{fmt(selectedLcCalc?.totalDispatchedValue)} ({selectedLcCalc?.totalDispatchedQty} units)</b></div>
                         </div>
 
                         <div className="space-y-3">
                           <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Record Material Dispatch</div>
-                          <div className="space-y-2">
-                            {selectedLcPo.items.map(it => {
-                              const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
-                              const maxDispatchable = stat?.readyQtyForItem ?? 0;
-                              return (
-                                <div key={it.id} className="flex flex-wrap items-center justify-between text-xs p-2 bg-[#F6F2E9] rounded gap-2">
-                                  <div className="font-semibold text-[#1B2A41] flex-1">{it.desc}</div>
-                                  <div className="font-mono text-gray-600">Produced: <b>{stat?.productionQty || 0}</b> · Dispatched: <b>{stat?.dispatchedQty || 0}</b> · <span className="text-[#B8862E]">Ready to Dispatch: <b>{maxDispatchable}</b></span></div>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={maxDispatchable}
-                                    placeholder="Qty dispatch"
-                                    className="w-24 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E]"
-                                    value={lcInputs[`disp_${it.itemIndex}`] || ''}
-                                    onChange={e => setLcInputs({ ...lcInputs, [`disp_${it.itemIndex}`]: e.target.value })}
-                                  />
-                                </div>
-                              );
-                            })}
+                          
+                          <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
+                            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                              <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
+                                <tr>
+                                  <th className="p-2.5">PO Item</th>
+                                  <th className="p-2.5 text-right font-mono">Produced</th>
+                                  <th className="p-2.5 text-right font-mono">Dispatched</th>
+                                  <th className="p-2.5 text-right font-mono">Ready to Dispatch</th>
+                                  <th className="p-2.5 text-right font-mono">Qty Now</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#D8CFB8]">
+                                {selectedLcPo.items.map(it => {
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const prodQ = stat?.productionQty || 0;
+                                  const dispQ = stat?.dispatchedQty || 0;
+                                  const maxDispatchable = Math.max(0, prodQ - dispQ);
+
+                                  return (
+                                    <tr key={it.id} className="hover:bg-[#FBF7EC]">
+                                      <td className="p-2.5 font-semibold text-[#1B2A41]">{it.desc}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold">{prodQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#3F6E4E]">{dispQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-bold text-[#B8862E]">{maxDispatchable}</td>
+                                      <td className="p-2.5 text-right">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={maxDispatchable}
+                                          placeholder="0"
+                                          className="w-24 bg-white border border-[#D8CFB8] px-2.5 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E] focus:outline-none"
+                                          value={lcInputs[`disp_${it.itemIndex}`] || ''}
+                                          onChange={e => setLcInputs({ ...lcInputs, [`disp_${it.itemIndex}`]: e.target.value })}
+                                        />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
+                                <tr>
+                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry — Qty:</td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
+                                    {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`disp_${it.itemIndex}`]) || 0), 0)}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
                           </div>
+
                           <div className="flex gap-2 items-center pt-2">
                             <input
                               type="date"
@@ -1219,15 +1279,17 @@ export default function ClientPoPage() {
                               onChange={e => setLcInputs({ ...lcInputs, disp_note: e.target.value })}
                             />
                             <button
-                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
+                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs shadow-sm"
                               onClick={() => {
                                 let val = 0, q = 0;
                                 let overLimitErr = '';
 
                                 const allocs = selectedLcPo.items.map(it => {
                                   const itemQty = Number(lcInputs[`disp_${it.itemIndex}`]) || 0;
-                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
-                                  const maxDispatchable = stat?.readyQtyForItem ?? 0;
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const prodQ = stat?.productionQty || 0;
+                                  const dispQ = stat?.dispatchedQty || 0;
+                                  const maxDispatchable = Math.max(0, prodQ - dispQ);
 
                                   if (itemQty > maxDispatchable) {
                                     overLimitErr = `Item "${it.desc}": Dispatch qty (${itemQty}) exceeds produced ready stock (${maxDispatchable}).`;
@@ -1256,7 +1318,7 @@ export default function ClientPoPage() {
 
                         <div className="space-y-2 pt-4 border-t">
                           <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Dispatch Entries</div>
-                          <table className="w-full text-left text-xs">
+                          <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
                                 <th className="p-2">Date</th>
@@ -1293,7 +1355,7 @@ export default function ClientPoPage() {
                     {activeStageTab === 'lcs-invoice' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
                         <h4 className="font-serif font-semibold text-base">4 · Dispatch Invoicing & Billing</h4>
-                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
                           <div>Dispatched Value: <b>{fmt(selectedLcCalc?.totalDispatchedValue)}</b></div>
                           <div>Invoiced Value: <b>{fmt(selectedLcCalc?.totalInvoiceValue)}</b></div>
                           <div className="text-[#A9432F]">Unbilled Dispatch: <b>{fmt(selectedLcCalc?.pendingBillingValue)} ({selectedLcCalc?.pendingBillingQty} units)</b></div>
@@ -1302,27 +1364,57 @@ export default function ClientPoPage() {
 
                         <div className="space-y-3">
                           <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Generate Dispatch Invoice</div>
-                          <div className="space-y-2">
-                            {selectedLcPo.items.map(it => {
-                              const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
-                              const maxBilling = stat?.pendingInvoiceQty ?? 0;
-                              return (
-                                <div key={it.id} className="flex flex-wrap items-center justify-between text-xs p-2 bg-[#F6F2E9] rounded gap-2">
-                                  <div className="font-semibold text-[#1B2A41] flex-1">{it.desc}</div>
-                                  <div className="font-mono text-gray-600">Dispatched: <b>{stat?.dispatchedQty || 0}</b> · Invoiced: <b>{stat?.invoicedQty || 0}</b> · <span className="text-[#B8862E]">Pending Bill: <b>{maxBilling}</b></span></div>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={maxBilling}
-                                    placeholder="Qty invoice"
-                                    className="w-24 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E]"
-                                    value={lcInputs[`inv_${it.itemIndex}`] || ''}
-                                    onChange={e => setLcInputs({ ...lcInputs, [`inv_${it.itemIndex}`]: e.target.value })}
-                                  />
-                                </div>
-                              );
-                            })}
+                          
+                          <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
+                            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                              <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
+                                <tr>
+                                  <th className="p-2.5">PO Item</th>
+                                  <th className="p-2.5 text-right font-mono">Dispatched</th>
+                                  <th className="p-2.5 text-right font-mono">Invoiced</th>
+                                  <th className="p-2.5 text-right font-mono">Pending Bill</th>
+                                  <th className="p-2.5 text-right font-mono">Qty Now</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#D8CFB8]">
+                                {selectedLcPo.items.map(it => {
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const dispQ = stat?.dispatchedQty || 0;
+                                  const invQ = stat?.invoicedQty || 0;
+                                  const maxBilling = Math.max(0, dispQ - invQ);
+
+                                  return (
+                                    <tr key={it.id} className="hover:bg-[#FBF7EC]">
+                                      <td className="p-2.5 font-semibold text-[#1B2A41]">{it.desc}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold">{dispQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#3F6E4E]">{invQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-bold text-[#B8862E]">{maxBilling}</td>
+                                      <td className="p-2.5 text-right">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={maxBilling}
+                                          placeholder="0"
+                                          className="w-24 bg-white border border-[#D8CFB8] px-2.5 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E] focus:outline-none"
+                                          value={lcInputs[`inv_${it.itemIndex}`] || ''}
+                                          onChange={e => setLcInputs({ ...lcInputs, [`inv_${it.itemIndex}`]: e.target.value })}
+                                        />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
+                                <tr>
+                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry — Qty:</td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
+                                    {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`inv_${it.itemIndex}`]) || 0), 0)}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
                           </div>
+
                           <div className="flex flex-wrap gap-2 items-center pt-2">
                             <div className="flex items-center gap-1 text-xs">
                               <span className="text-gray-600 font-semibold">Inv Date:</span>
@@ -1350,15 +1442,17 @@ export default function ClientPoPage() {
                               onChange={e => setLcInputs({ ...lcInputs, inv_note: e.target.value })}
                             />
                             <button
-                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
+                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs shadow-sm"
                               onClick={() => {
                                 let val = 0, q = 0;
                                 let overLimitErr = '';
 
                                 const allocs = selectedLcPo.items.map(it => {
                                   const itemQty = Number(lcInputs[`inv_${it.itemIndex}`]) || 0;
-                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
-                                  const maxBilling = stat?.pendingInvoiceQty ?? 0;
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const dispQ = stat?.dispatchedQty || 0;
+                                  const invQ = stat?.invoicedQty || 0;
+                                  const maxBilling = Math.max(0, dispQ - invQ);
 
                                   if (itemQty > maxBilling) {
                                     overLimitErr = `Item "${it.desc}": Invoice qty (${itemQty}) exceeds unbilled dispatched quantity (${maxBilling}).`;
@@ -1388,7 +1482,7 @@ export default function ClientPoPage() {
 
                         <div className="space-y-2 pt-4 border-t">
                           <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Dispatch Invoices</div>
-                          <table className="w-full text-left text-xs">
+                          <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
                                 <th className="p-2">Date</th>
@@ -1427,36 +1521,66 @@ export default function ClientPoPage() {
                     {activeStageTab === 'lcs-install' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
                         <h4 className="font-serif font-semibold text-base">5 · Installation Progress</h4>
-                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
-                          <div>Total Dispatched: <b>{selectedLcCalc?.totalDispatchedQty} units</b></div>
-                          <div>Installed Qty: <b>{selectedLcCalc?.installedQty} units</b></div>
-                          <div>Remaining to Install: <b>{selectedLcCalc?.remainingInstallQty} units</b></div>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
+                          <div>Total Dispatched: <b>{selectedLcCalc?.totalDispatchedQty || 0} units</b></div>
+                          <div>Installed Qty: <b>{selectedLcCalc?.installedQty || 0} units</b></div>
+                          <div>Remaining to Install: <b>{selectedLcCalc?.remainingInstallQty || 0} units</b></div>
                           <div>Progress: <b>{Math.round((selectedLcCalc?.installationProgress || 0) * 100)}%</b></div>
                         </div>
 
                         <div className="space-y-3">
                           <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Record Installation Progress</div>
-                          <div className="space-y-2">
-                            {selectedLcPo.items.map(it => {
-                              const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
-                              const maxInstallable = stat?.eligibleForInstallQty ?? 0;
-                              return (
-                                <div key={it.id} className="flex flex-wrap items-center justify-between text-xs p-2 bg-[#F6F2E9] rounded gap-2">
-                                  <div className="font-semibold text-[#1B2A41] flex-1">{it.desc}</div>
-                                  <div className="font-mono text-gray-600">Dispatched: <b>{stat?.dispatchedQty || 0}</b> · Installed: <b>{stat?.installedQty || 0}</b> · <span className="text-[#B8862E]">Remaining Installable: <b>{maxInstallable}</b></span></div>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={maxInstallable}
-                                    placeholder="Qty install"
-                                    className="w-24 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E]"
-                                    value={lcInputs[`inst_${it.itemIndex}`] || ''}
-                                    onChange={e => setLcInputs({ ...lcInputs, [`inst_${it.itemIndex}`]: e.target.value })}
-                                  />
-                                </div>
-                              );
-                            })}
+                          
+                          <div className="overflow-x-auto border border-[#D8CFB8] rounded shadow-sm bg-[#FFFDF8]">
+                            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                              <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63] uppercase text-[10px] border-b border-[#D8CFB8]">
+                                <tr>
+                                  <th className="p-2.5">PO Item</th>
+                                  <th className="p-2.5 text-right font-mono">Dispatched</th>
+                                  <th className="p-2.5 text-right font-mono">Installed</th>
+                                  <th className="p-2.5 text-right font-mono">Remaining</th>
+                                  <th className="p-2.5 text-right font-mono">Qty Now</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#D8CFB8]">
+                                {selectedLcPo.items.map(it => {
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const dispQ = stat?.dispatchedQty || 0;
+                                  const instQ = stat?.installedQty || 0;
+                                  const maxInstallable = Math.max(0, dispQ - instQ);
+
+                                  return (
+                                    <tr key={it.id} className="hover:bg-[#FBF7EC]">
+                                      <td className="p-2.5 font-semibold text-[#1B2A41]">{it.desc}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold">{dispQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-semibold text-[#3F6E4E]">{instQ}</td>
+                                      <td className="p-2.5 font-mono text-right font-bold text-[#B8862E]">{maxInstallable}</td>
+                                      <td className="p-2.5 text-right">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={maxInstallable}
+                                          placeholder="0"
+                                          className="w-24 bg-white border border-[#D8CFB8] px-2.5 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E] focus:outline-none"
+                                          value={lcInputs[`inst_${it.itemIndex}`] || ''}
+                                          onChange={e => setLcInputs({ ...lcInputs, [`inst_${it.itemIndex}`]: e.target.value })}
+                                        />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-[#EDE6D6]/50 border-t border-[#D8CFB8] font-semibold text-xs">
+                                <tr>
+                                  <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#3A4A63]">Total for this entry — Qty:</td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-[#1B2A41]">
+                                    {selectedLcPo.items.reduce((sum, it) => sum + (Number(lcInputs[`inst_${it.itemIndex}`]) || 0), 0)}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
                           </div>
+
                           <div className="flex gap-2 items-center pt-2">
                             <input
                               type="date"
@@ -1472,15 +1596,17 @@ export default function ClientPoPage() {
                               onChange={e => setLcInputs({ ...lcInputs, inst_note: e.target.value })}
                             />
                             <button
-                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
+                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs shadow-sm"
                               onClick={() => {
                                 let q = 0;
                                 let overLimitErr = '';
 
                                 const allocs = selectedLcPo.items.map(it => {
                                   const itemQty = Number(lcInputs[`inst_${it.itemIndex}`]) || 0;
-                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
-                                  const maxInstallable = stat?.eligibleForInstallQty ?? 0;
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex || (it.id && s.id === it.id));
+                                  const dispQ = stat?.dispatchedQty || 0;
+                                  const instQ = stat?.installedQty || 0;
+                                  const maxInstallable = Math.max(0, dispQ - instQ);
 
                                   if (itemQty > maxInstallable) {
                                     overLimitErr = `Item "${it.desc}": Installed qty (${itemQty}) exceeds dispatched quantity available for installation (${maxInstallable}).`;
@@ -1507,7 +1633,7 @@ export default function ClientPoPage() {
 
                         <div className="space-y-2 pt-4 border-t">
                           <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Installation Entries</div>
-                          <table className="w-full text-left text-xs">
+                          <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
                                 <th className="p-2">Date</th>
