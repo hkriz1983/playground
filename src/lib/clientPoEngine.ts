@@ -416,10 +416,12 @@ export function computeLifecycle(po: ClientPoGraph) {
       index: it.itemIndex,
       desc: it.desc,
       orderedQty: it.qty,
+      unitPrice: it.unitPrice || 0,
       productionQty: prodQ,
       dispatchedQty: dispQ,
       invoicedQty: invQ,
       installedQty: instQ,
+      remainingProdCapacityQtyForItem: Math.max(0, it.qty - prodQ),
       readyQtyForItem: Math.max(0, prodQ - dispQ),
       pendingInvoiceQty: Math.max(0, dispQ - invQ),
       eligibleForInstallQty: Math.max(0, dispQ - instQ)

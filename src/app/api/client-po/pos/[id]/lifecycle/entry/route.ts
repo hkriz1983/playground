@@ -40,6 +40,46 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       data: updateData
     });
 
+    if (Array.isArray(fields.allocations)) {
+      const rawPo = await prisma.clientPoHeader.findUnique({ where: { id: poId }, include: { items: true } });
+      if (rawPo) {
+        const createAllocations = fields.allocations.map((a: any) => {
+          const item = rawPo.items.find(it => it.itemIndex === a.itemIndex || it.id === a.itemId);
+          return {
+            itemId: item?.id || rawPo.items[0]?.id,
+            qty: Number(a.qty) || 0
+          };
+        }).filter((a: any) => a.qty >= 0);
+
+        if (arrayName === 'productions') {
+          await prisma.clientPoProductionAllocation.deleteMany({ where: { productionId: entryId } });
+          await prisma.clientPoProductionAllocation.createMany({
+            data: createAllocations.map((a: any) => ({ productionId: entryId, ...a }))
+          });
+        } else if (arrayName === 'dispatches') {
+          await prisma.clientPoDispatchAllocation.deleteMany({ where: { dispatchId: entryId } });
+          await prisma.clientPoDispatchAllocation.createMany({
+            data: createAllocations.map((a: any) => ({ dispatchId: entryId, ...a }))
+          });
+        } else if (arrayName === 'invoices') {
+          await prisma.clientPoInvoiceAllocation.deleteMany({ where: { invoiceId: entryId } });
+          await prisma.clientPoInvoiceAllocation.createMany({
+            data: createAllocations.map((a: any) => ({ invoiceId: entryId, ...a }))
+          });
+        } else if (arrayName === 'installations') {
+          await prisma.clientPoInstallationAllocation.deleteMany({ where: { installationId: entryId } });
+          await prisma.clientPoInstallationAllocation.createMany({
+            data: createAllocations.map((a: any) => ({ installationId: entryId, ...a }))
+          });
+        } else if (arrayName === 'installationInvoices') {
+          await prisma.clientPoInstallInvoiceAllocation.deleteMany({ where: { installInvoiceId: entryId } });
+          await prisma.clientPoInstallInvoiceAllocation.createMany({
+            data: createAllocations.map((a: any) => ({ installInvoiceId: entryId, ...a }))
+          });
+        }
+      }
+    }
+
     await prisma.clientPoHistory.create({
       data: { poId, type: 'edit', text: `Edited a ${arrayName} entry.` }
     });

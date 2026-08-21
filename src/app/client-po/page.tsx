@@ -97,6 +97,92 @@ export default function ClientPoPage() {
   // Form State for Entry Inputs in Stage Panes
   const [lcInputs, setLcInputs] = useState<Record<string, any>>({});
 
+  // Edit Entry Modal State
+  const [showEditEntryModal, setShowEditEntryModal] = useState(false);
+  const [editingEntryPoId, setEditingEntryPoId] = useState<string>('');
+  const [editingEntryArray, setEditingEntryArray] = useState<string>('');
+  const [editingEntryId, setEditingEntryId] = useState<string>('');
+  const [editFormDate, setEditFormDate] = useState<string>('');
+  const [editFormDueDate, setEditFormDueDate] = useState<string>('');
+  const [editFormAmount, setEditFormAmount] = useState<string>('');
+  const [editFormQty, setEditFormQty] = useState<string>('');
+  const [editFormValue, setEditFormValue] = useState<string>('');
+  const [editFormType, setEditFormType] = useState<string>('');
+  const [editFormRef, setEditFormRef] = useState<string>('');
+  const [editFormNote, setEditFormNote] = useState<string>('');
+  const [editFormAllocations, setEditFormAllocations] = useState<{ itemIndex: number; qty: string; desc?: string }[]>([]);
+
+  const openEditEntryModal = (poId: string, arrayName: string, entry: any, poItems?: any[]) => {
+    setEditingEntryPoId(poId);
+    setEditingEntryArray(arrayName);
+    setEditingEntryId(entry.id);
+    setEditFormDate(entry.date || todayISO());
+    setEditFormDueDate(entry.dueDate || '');
+    setEditFormAmount(entry.amount !== undefined ? String(entry.amount) : '');
+    setEditFormQty(entry.qty !== undefined ? String(entry.qty) : '');
+    setEditFormValue(entry.value !== undefined ? String(entry.value) : '');
+    setEditFormType(entry.type || entry.against || '');
+    setEditFormRef(entry.ref || '');
+    setEditFormNote(entry.note || '');
+
+    if (poItems && Array.isArray(entry.allocations)) {
+      const allocs = poItems.map(it => {
+        const existing = entry.allocations.find((a: any) => a.itemIndex === it.itemIndex || a.itemId === it.id);
+        return {
+          itemIndex: it.itemIndex,
+          desc: it.desc,
+          qty: existing ? String(existing.qty) : '0'
+        };
+      });
+      setEditFormAllocations(allocs);
+    } else {
+      setEditFormAllocations([]);
+    }
+    setShowEditEntryModal(true);
+  };
+
+  const handleSaveEditEntry = async () => {
+    try {
+      const body: any = {
+        arrayName: editingEntryArray,
+        entryId: editingEntryId,
+        date: editFormDate,
+        note: editFormNote
+      };
+
+      if (editFormDueDate) body.dueDate = editFormDueDate;
+      if (editFormAmount !== '') body.amount = Number(editFormAmount) || 0;
+      if (editFormQty !== '') body.qty = Number(editFormQty) || 0;
+      if (editFormValue !== '') body.value = Number(editFormValue) || 0;
+      if (editFormType) body.type = editFormType;
+      if (editFormRef) body.ref = editFormRef;
+
+      if (editFormAllocations.length > 0) {
+        body.allocations = editFormAllocations.map(a => ({
+          itemIndex: a.itemIndex,
+          qty: Number(a.qty) || 0
+        }));
+      }
+
+      const res = await fetch(`/api/client-po/pos/${editingEntryPoId}/lifecycle/entry`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok) {
+        setShowEditEntryModal(false);
+        showToast('Entry updated successfully');
+        await fetchPos();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to update entry');
+      }
+    } catch (e) {
+      alert('Error updating entry');
+    }
+  };
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 2500);
@@ -907,13 +993,21 @@ export default function ClientPoPage() {
                         <button
                           key={tab.id}
                           className={`px-4 py-2 font-semibold text-xs border-b-4 -mb-1 whitespace-nowrap transition-colors ${activeStageTab === tab.id ? 'border-[#B8862E] text-[#B8862E]' : 'border-transparent text-[#3A4A63] hover:text-[#1B2A41]'}`}
-                          onClick={() => setActiveStageTab(tab.id)}
+                          onClick={() => {
+                            setActiveStageTab(tab.id);
+                            let defaultType = 'dispatch';
+                            if (tab.id === 'lcs-advance') defaultType = 'advance';
+                            else if (tab.id === 'lcs-install' || tab.id === 'lcs-install-invoice') defaultType = 'installation';
+                            else if (tab.id === 'lcs-retention') defaultType = 'retention';
+                            setLcInputs(prev => ({ ...prev, pay_type: defaultType }));
+                          }}
                         >
                           {tab.label}
                         </button>
                       ))}
                     </div>
 
+                    {/* Tab 1: Advance */}
                     {activeStageTab === 'lcs-advance' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
                         <h4 className="font-serif font-semibold text-base">1 · Advance Payment (Value-Based)</h4>
@@ -924,16 +1018,49 @@ export default function ClientPoPage() {
                           <div>Available: <b>{fmt(selectedLcCalc?.availableAdvanceBalance)}</b></div>
                           <div className="text-[#A9432F]">Pending: <b>{fmt(selectedLcCalc?.pendingAdvance)}</b></div>
                         </div>
-                        <p className="text-xs text-[#3A4A63]">Advance receipts are recorded from the <b>Customer Payment</b> panel below.</p>
+
+                        <div className="space-y-2 pt-2 border-t">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Advance Payments</div>
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
+                              <tr>
+                                <th className="p-2">Date</th>
+                                <th className="p-2 text-right">Amount</th>
+                                <th className="p-2">Ref / UTR</th>
+                                <th className="p-2">Note</th>
+                                <th className="p-2 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#D8CFB8]">
+                              {selectedLcCalc?.lc.advancePayments.length === 0 ? (
+                                <tr><td colSpan={5} className="p-3 text-center text-gray-500">No advance payments recorded yet. Record via Customer Payment Drawer below.</td></tr>
+                              ) : (
+                                selectedLcCalc?.lc.advancePayments.map(r => (
+                                  <tr key={r.id}>
+                                    <td className="p-2 font-mono">{r.date}</td>
+                                    <td className="p-2 font-mono text-right font-bold text-[#3F6E4E]">{fmt(r.amount)}</td>
+                                    <td className="p-2 font-mono text-gray-600">{r.ref || '—'}</td>
+                                    <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
+                                    <td className="p-2 text-right space-x-2">
+                                      <button className="text-[#1B2A41] font-semibold text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, 'advancePayments', r)}>Edit</button>
+                                      <button className="text-[#A9432F] font-semibold text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, 'advancePayments', r.id)}>Del</button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
 
+                    {/* Tab 2: Production */}
                     {activeStageTab === 'lcs-production' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
                         <h4 className="font-serif font-semibold text-base">2 · Sent for Production</h4>
                         <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
-                          <div>Eligible Production: <b>{fmt(selectedLcCalc?.productionEligibleValue)}</b></div>
-                          <div>In Production: <b>{fmt(selectedLcCalc?.totalProductionValue)}</b> ({selectedLcCalc?.totalProductionQty} units)</div>
+                          <div>Eligible Production: <b>{fmt(selectedLcCalc?.productionEligibleValue)} ({selectedLcCalc?.productionEligibleQty} units)</b></div>
+                          <div>In Production: <b>{fmt(selectedLcCalc?.totalProductionValue)} ({selectedLcCalc?.totalProductionQty} units)</b></div>
                           <div>Remaining Capacity: <b>{fmt(selectedLcCalc?.remainingProductionCapacity)}</b></div>
                         </div>
 
@@ -942,14 +1069,17 @@ export default function ClientPoPage() {
                           <div className="space-y-2">
                             {selectedLcPo.items.map(it => {
                               const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
+                              const maxRemaining = stat?.remainingProdCapacityQtyForItem ?? (it.qty - (stat?.productionQty || 0));
                               return (
                                 <div key={it.id} className="flex flex-wrap items-center justify-between text-xs p-2 bg-[#F6F2E9] rounded gap-2">
                                   <div className="font-semibold text-[#1B2A41] flex-1">{it.desc}</div>
-                                  <div className="font-mono text-gray-500">Ordered: {it.qty} · In Prod: {stat?.productionQty || 0}</div>
+                                  <div className="font-mono text-gray-600">Ordered: <b>{it.qty}</b> · In Prod: <b>{stat?.productionQty || 0}</b> · <span className="text-[#B8862E]">Remaining Max: <b>{maxRemaining}</b></span></div>
                                   <input
                                     type="number"
+                                    min="0"
+                                    max={maxRemaining}
                                     placeholder="Qty now"
-                                    className="w-20 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono"
+                                    className="w-24 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E]"
                                     value={lcInputs[`prod_${it.itemIndex}`] || ''}
                                     onChange={e => setLcInputs({ ...lcInputs, [`prod_${it.itemIndex}`]: e.target.value })}
                                   />
@@ -975,14 +1105,24 @@ export default function ClientPoPage() {
                               className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
                               onClick={() => {
                                 let val = 0, q = 0;
+                                let overLimitErr = '';
+
                                 const allocs = selectedLcPo.items.map(it => {
                                   const itemQty = Number(lcInputs[`prod_${it.itemIndex}`]) || 0;
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
+                                  const maxRemaining = stat?.remainingProdCapacityQtyForItem ?? (it.qty - (stat?.productionQty || 0));
+
+                                  if (itemQty > maxRemaining) {
+                                    overLimitErr = `Item "${it.desc}": Input quantity (${itemQty}) exceeds maximum remaining ordered quantity (${maxRemaining}).`;
+                                  }
                                   val += itemQty * it.unitPrice;
                                   q += itemQty;
                                   return { itemIndex: it.itemIndex, qty: itemQty };
                                 }).filter(a => a.qty > 0);
 
+                                if (overLimitErr) { alert(overLimitErr); return; }
                                 if (allocs.length === 0) { alert('Enter qty for at least one item.'); return; }
+
                                 submitStageTransaction(selectedLcPo.id, 'production', {
                                   qty: q,
                                   value: val,
@@ -1006,23 +1146,516 @@ export default function ClientPoPage() {
                                 <th className="p-2 text-right">Qty</th>
                                 <th className="p-2 text-right">Value</th>
                                 <th className="p-2">Note</th>
-                                <th className="p-2 text-right">Action</th>
+                                <th className="p-2 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-[#D8CFB8]">
-                              {selectedLcCalc?.lc.productions.map(r => (
-                                <tr key={r.id}>
-                                  <td className="p-2 font-mono">{r.date}</td>
-                                  <td className="p-2 font-mono text-right">{r.qty}</td>
-                                  <td className="p-2 font-mono text-right">{fmt(r.value)}</td>
-                                  <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
-                                  <td className="p-2 text-right">
-                                    <button className="text-[#A9432F] font-semibold text-[11px]" onClick={() => submitDeleteEntry(selectedLcPo.id, 'productions', r.id)}>Del</button>
-                                  </td>
-                                </tr>
-                              ))}
+                              {selectedLcCalc?.lc.productions.length === 0 ? (
+                                <tr><td colSpan={5} className="p-3 text-center text-gray-500">No production entries recorded yet.</td></tr>
+                              ) : (
+                                selectedLcCalc?.lc.productions.map(r => (
+                                  <tr key={r.id}>
+                                    <td className="p-2 font-mono">{r.date}</td>
+                                    <td className="p-2 font-mono text-right">{r.qty}</td>
+                                    <td className="p-2 font-mono text-right">{fmt(r.value)}</td>
+                                    <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
+                                    <td className="p-2 text-right space-x-2">
+                                      <button className="text-[#1B2A41] font-semibold text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, 'productions', r, selectedLcPo.items)}>Edit</button>
+                                      <button className="text-[#A9432F] font-semibold text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, 'productions', r.id)}>Del</button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
                             </tbody>
                           </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 3: Dispatch */}
+                    {activeStageTab === 'lcs-dispatch' && (
+                      <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
+                        <h4 className="font-serif font-semibold text-base">3 · Material Dispatch</h4>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                          <div>Ready for Dispatch: <b>{fmt(selectedLcCalc?.readyForDispatchValue)} ({selectedLcCalc?.readyForDispatchQty} units)</b></div>
+                          <div>Total Dispatched: <b>{fmt(selectedLcCalc?.totalDispatchedValue)} ({selectedLcCalc?.totalDispatchedQty} units)</b></div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Record Material Dispatch</div>
+                          <div className="space-y-2">
+                            {selectedLcPo.items.map(it => {
+                              const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
+                              const maxDispatchable = stat?.readyQtyForItem ?? 0;
+                              return (
+                                <div key={it.id} className="flex flex-wrap items-center justify-between text-xs p-2 bg-[#F6F2E9] rounded gap-2">
+                                  <div className="font-semibold text-[#1B2A41] flex-1">{it.desc}</div>
+                                  <div className="font-mono text-gray-600">Produced: <b>{stat?.productionQty || 0}</b> · Dispatched: <b>{stat?.dispatchedQty || 0}</b> · <span className="text-[#B8862E]">Ready to Dispatch: <b>{maxDispatchable}</b></span></div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={maxDispatchable}
+                                    placeholder="Qty dispatch"
+                                    className="w-24 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E]"
+                                    value={lcInputs[`disp_${it.itemIndex}`] || ''}
+                                    onChange={e => setLcInputs({ ...lcInputs, [`disp_${it.itemIndex}`]: e.target.value })}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex gap-2 items-center pt-2">
+                            <input
+                              type="date"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                              value={lcInputs['disp_date'] || todayISO()}
+                              onChange={e => setLcInputs({ ...lcInputs, disp_date: e.target.value })}
+                            />
+                            <input
+                              type="text"
+                              placeholder="LR No / Vehicle / Note"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs flex-1"
+                              value={lcInputs['disp_note'] || ''}
+                              onChange={e => setLcInputs({ ...lcInputs, disp_note: e.target.value })}
+                            />
+                            <button
+                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
+                              onClick={() => {
+                                let val = 0, q = 0;
+                                let overLimitErr = '';
+
+                                const allocs = selectedLcPo.items.map(it => {
+                                  const itemQty = Number(lcInputs[`disp_${it.itemIndex}`]) || 0;
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
+                                  const maxDispatchable = stat?.readyQtyForItem ?? 0;
+
+                                  if (itemQty > maxDispatchable) {
+                                    overLimitErr = `Item "${it.desc}": Dispatch qty (${itemQty}) exceeds produced ready stock (${maxDispatchable}).`;
+                                  }
+                                  val += itemQty * it.unitPrice;
+                                  q += itemQty;
+                                  return { itemIndex: it.itemIndex, qty: itemQty };
+                                }).filter(a => a.qty > 0);
+
+                                if (overLimitErr) { alert(overLimitErr); return; }
+                                if (allocs.length === 0) { alert('Enter qty to dispatch for at least one item.'); return; }
+
+                                submitStageTransaction(selectedLcPo.id, 'dispatch', {
+                                  qty: q,
+                                  value: val,
+                                  date: lcInputs['disp_date'] || todayISO(),
+                                  note: lcInputs['disp_note'] || '',
+                                  allocations: allocs
+                                });
+                              }}
+                            >
+                              + Record Dispatch
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-4 border-t">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Dispatch Entries</div>
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
+                              <tr>
+                                <th className="p-2">Date</th>
+                                <th className="p-2 text-right">Qty</th>
+                                <th className="p-2 text-right">Value</th>
+                                <th className="p-2">LR / Vehicle / Note</th>
+                                <th className="p-2 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#D8CFB8]">
+                              {selectedLcCalc?.lc.dispatches.length === 0 ? (
+                                <tr><td colSpan={5} className="p-3 text-center text-gray-500">No dispatch entries recorded yet.</td></tr>
+                              ) : (
+                                selectedLcCalc?.lc.dispatches.map(r => (
+                                  <tr key={r.id}>
+                                    <td className="p-2 font-mono">{r.date}</td>
+                                    <td className="p-2 font-mono text-right">{r.qty}</td>
+                                    <td className="p-2 font-mono text-right">{fmt(r.value)}</td>
+                                    <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
+                                    <td className="p-2 text-right space-x-2">
+                                      <button className="text-[#1B2A41] font-semibold text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, 'dispatches', r, selectedLcPo.items)}>Edit</button>
+                                      <button className="text-[#A9432F] font-semibold text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, 'dispatches', r.id)}>Del</button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 4: Dispatch Invoice */}
+                    {activeStageTab === 'lcs-invoice' && (
+                      <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
+                        <h4 className="font-serif font-semibold text-base">4 · Dispatch Invoicing & Billing</h4>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                          <div>Dispatched Value: <b>{fmt(selectedLcCalc?.totalDispatchedValue)}</b></div>
+                          <div>Invoiced Value: <b>{fmt(selectedLcCalc?.totalInvoiceValue)}</b></div>
+                          <div className="text-[#A9432F]">Unbilled Dispatch: <b>{fmt(selectedLcCalc?.pendingBillingValue)} ({selectedLcCalc?.pendingBillingQty} units)</b></div>
+                          <div>Dispatch Receivable: <b>{fmt(selectedLcCalc?.outstandingAmount)}</b></div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Generate Dispatch Invoice</div>
+                          <div className="space-y-2">
+                            {selectedLcPo.items.map(it => {
+                              const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
+                              const maxBilling = stat?.pendingInvoiceQty ?? 0;
+                              return (
+                                <div key={it.id} className="flex flex-wrap items-center justify-between text-xs p-2 bg-[#F6F2E9] rounded gap-2">
+                                  <div className="font-semibold text-[#1B2A41] flex-1">{it.desc}</div>
+                                  <div className="font-mono text-gray-600">Dispatched: <b>{stat?.dispatchedQty || 0}</b> · Invoiced: <b>{stat?.invoicedQty || 0}</b> · <span className="text-[#B8862E]">Pending Bill: <b>{maxBilling}</b></span></div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={maxBilling}
+                                    placeholder="Qty invoice"
+                                    className="w-24 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E]"
+                                    value={lcInputs[`inv_${it.itemIndex}`] || ''}
+                                    onChange={e => setLcInputs({ ...lcInputs, [`inv_${it.itemIndex}`]: e.target.value })}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex flex-wrap gap-2 items-center pt-2">
+                            <div className="flex items-center gap-1 text-xs">
+                              <span className="text-gray-600 font-semibold">Inv Date:</span>
+                              <input
+                                type="date"
+                                className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                                value={lcInputs['inv_date'] || todayISO()}
+                                onChange={e => setLcInputs({ ...lcInputs, inv_date: e.target.value })}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 text-xs">
+                              <span className="text-gray-600 font-semibold">Due Date:</span>
+                              <input
+                                type="date"
+                                className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                                value={lcInputs['inv_dueDate'] || addDays(lcInputs['inv_date'] || todayISO(), selectedLcPo.creditDays || 30) || ''}
+                                onChange={e => setLcInputs({ ...lcInputs, inv_dueDate: e.target.value })}
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="Invoice No / Note"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs flex-1"
+                              value={lcInputs['inv_note'] || ''}
+                              onChange={e => setLcInputs({ ...lcInputs, inv_note: e.target.value })}
+                            />
+                            <button
+                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
+                              onClick={() => {
+                                let val = 0, q = 0;
+                                let overLimitErr = '';
+
+                                const allocs = selectedLcPo.items.map(it => {
+                                  const itemQty = Number(lcInputs[`inv_${it.itemIndex}`]) || 0;
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
+                                  const maxBilling = stat?.pendingInvoiceQty ?? 0;
+
+                                  if (itemQty > maxBilling) {
+                                    overLimitErr = `Item "${it.desc}": Invoice qty (${itemQty}) exceeds unbilled dispatched quantity (${maxBilling}).`;
+                                  }
+                                  val += itemQty * it.unitPrice;
+                                  q += itemQty;
+                                  return { itemIndex: it.itemIndex, qty: itemQty };
+                                }).filter(a => a.qty > 0);
+
+                                if (overLimitErr) { alert(overLimitErr); return; }
+                                if (allocs.length === 0) { alert('Enter qty to invoice for at least one item.'); return; }
+
+                                submitStageTransaction(selectedLcPo.id, 'invoice', {
+                                  qty: q,
+                                  value: val,
+                                  date: lcInputs['inv_date'] || todayISO(),
+                                  dueDate: lcInputs['inv_dueDate'] || addDays(lcInputs['inv_date'] || todayISO(), selectedLcPo.creditDays || 30),
+                                  note: lcInputs['inv_note'] || '',
+                                  allocations: allocs
+                                });
+                              }}
+                            >
+                              + Generate Dispatch Invoice
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-4 border-t">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Dispatch Invoices</div>
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
+                              <tr>
+                                <th className="p-2">Date</th>
+                                <th className="p-2 font-mono">Due Date</th>
+                                <th className="p-2 text-right">Qty</th>
+                                <th className="p-2 text-right">Value</th>
+                                <th className="p-2">Invoice Ref / Note</th>
+                                <th className="p-2 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#D8CFB8]">
+                              {selectedLcCalc?.lc.invoices.length === 0 ? (
+                                <tr><td colSpan={6} className="p-3 text-center text-gray-500">No dispatch invoices generated yet.</td></tr>
+                              ) : (
+                                selectedLcCalc?.lc.invoices.map(r => (
+                                  <tr key={r.id}>
+                                    <td className="p-2 font-mono">{r.date}</td>
+                                    <td className="p-2 font-mono">{r.dueDate || '—'}</td>
+                                    <td className="p-2 font-mono text-right">{r.qty}</td>
+                                    <td className="p-2 font-mono text-right font-bold text-[#1B2A41]">{fmt(r.value)}</td>
+                                    <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
+                                    <td className="p-2 text-right space-x-2">
+                                      <button className="text-[#1B2A41] font-semibold text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, 'invoices', r, selectedLcPo.items)}>Edit</button>
+                                      <button className="text-[#A9432F] font-semibold text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, 'invoices', r.id)}>Del</button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 5: Installation */}
+                    {activeStageTab === 'lcs-install' && (
+                      <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
+                        <h4 className="font-serif font-semibold text-base">5 · Installation Progress</h4>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                          <div>Total Dispatched: <b>{selectedLcCalc?.totalDispatchedQty} units</b></div>
+                          <div>Installed Qty: <b>{selectedLcCalc?.installedQty} units</b></div>
+                          <div>Remaining to Install: <b>{selectedLcCalc?.remainingInstallQty} units</b></div>
+                          <div>Progress: <b>{Math.round((selectedLcCalc?.installationProgress || 0) * 100)}%</b></div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Record Installation Progress</div>
+                          <div className="space-y-2">
+                            {selectedLcPo.items.map(it => {
+                              const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
+                              const maxInstallable = stat?.eligibleForInstallQty ?? 0;
+                              return (
+                                <div key={it.id} className="flex flex-wrap items-center justify-between text-xs p-2 bg-[#F6F2E9] rounded gap-2">
+                                  <div className="font-semibold text-[#1B2A41] flex-1">{it.desc}</div>
+                                  <div className="font-mono text-gray-600">Dispatched: <b>{stat?.dispatchedQty || 0}</b> · Installed: <b>{stat?.installedQty || 0}</b> · <span className="text-[#B8862E]">Remaining Installable: <b>{maxInstallable}</b></span></div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={maxInstallable}
+                                    placeholder="Qty install"
+                                    className="w-24 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono text-xs focus:border-[#B8862E]"
+                                    value={lcInputs[`inst_${it.itemIndex}`] || ''}
+                                    onChange={e => setLcInputs({ ...lcInputs, [`inst_${it.itemIndex}`]: e.target.value })}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex gap-2 items-center pt-2">
+                            <input
+                              type="date"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                              value={lcInputs['inst_date'] || todayISO()}
+                              onChange={e => setLcInputs({ ...lcInputs, inst_date: e.target.value })}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Site Engineer / Note"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs flex-1"
+                              value={lcInputs['inst_note'] || ''}
+                              onChange={e => setLcInputs({ ...lcInputs, inst_note: e.target.value })}
+                            />
+                            <button
+                              className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
+                              onClick={() => {
+                                let q = 0;
+                                let overLimitErr = '';
+
+                                const allocs = selectedLcPo.items.map(it => {
+                                  const itemQty = Number(lcInputs[`inst_${it.itemIndex}`]) || 0;
+                                  const stat = selectedLcCalc?.itemStats.find(s => s.index === it.itemIndex);
+                                  const maxInstallable = stat?.eligibleForInstallQty ?? 0;
+
+                                  if (itemQty > maxInstallable) {
+                                    overLimitErr = `Item "${it.desc}": Installed qty (${itemQty}) exceeds dispatched quantity available for installation (${maxInstallable}).`;
+                                  }
+                                  q += itemQty;
+                                  return { itemIndex: it.itemIndex, qty: itemQty };
+                                }).filter(a => a.qty > 0);
+
+                                if (overLimitErr) { alert(overLimitErr); return; }
+                                if (allocs.length === 0) { alert('Enter qty installed for at least one item.'); return; }
+
+                                submitStageTransaction(selectedLcPo.id, 'installation', {
+                                  qty: q,
+                                  date: lcInputs['inst_date'] || todayISO(),
+                                  note: lcInputs['inst_note'] || '',
+                                  allocations: allocs
+                                });
+                              }}
+                            >
+                              + Record Installation
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-4 border-t">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Installation Entries</div>
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
+                              <tr>
+                                <th className="p-2">Date</th>
+                                <th className="p-2 text-right">Installed Qty</th>
+                                <th className="p-2">Engineer / Note</th>
+                                <th className="p-2 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#D8CFB8]">
+                              {selectedLcCalc?.lc.installations.length === 0 ? (
+                                <tr><td colSpan={4} className="p-3 text-center text-gray-500">No installation progress recorded yet.</td></tr>
+                              ) : (
+                                selectedLcCalc?.lc.installations.map(r => (
+                                  <tr key={r.id}>
+                                    <td className="p-2 font-mono">{r.date}</td>
+                                    <td className="p-2 font-mono text-right font-bold text-[#1B2A41]">{r.qty}</td>
+                                    <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
+                                    <td className="p-2 text-right space-x-2">
+                                      <button className="text-[#1B2A41] font-semibold text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, 'installations', r, selectedLcPo.items)}>Edit</button>
+                                      <button className="text-[#A9432F] font-semibold text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, 'installations', r.id)}>Del</button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 6: Install Invoice */}
+                    {activeStageTab === 'lcs-install-invoice' && (
+                      <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
+                        <h4 className="font-serif font-semibold text-base">6 · Installation Invoicing</h4>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                          <div>Milestone Target: <b>{fmt(selectedLcCalc?.installTargetValue)}</b></div>
+                          <div>Invoiced: <b>{fmt(selectedLcCalc?.manualInstallationBilling)}</b></div>
+                          <div>Received: <b>{fmt(selectedLcCalc?.manualInstallationPayments)}</b></div>
+                          <div className="text-[#A9432F]">Outstanding: <b>{fmt(selectedLcCalc?.installationOutstanding)}</b></div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="text-xs font-semibold text-[#3A4A63] uppercase border-b pb-1">Generate Installation Invoice</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                            <input
+                              type="number"
+                              placeholder="Billing Value ₹"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs font-mono"
+                              value={lcInputs['iinv_value'] || ''}
+                              onChange={e => setLcInputs({ ...lcInputs, iinv_value: e.target.value })}
+                            />
+                            <input
+                              type="date"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                              value={lcInputs['iinv_date'] || todayISO()}
+                              onChange={e => setLcInputs({ ...lcInputs, iinv_date: e.target.value })}
+                            />
+                            <input
+                              type="date"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                              value={lcInputs['iinv_dueDate'] || addDays(lcInputs['iinv_date'] || todayISO(), selectedLcPo.creditDays || 30) || ''}
+                              onChange={e => setLcInputs({ ...lcInputs, iinv_dueDate: e.target.value })}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Cert / Bill Ref / Note"
+                              className="bg-white border border-[#D8CFB8] px-3 py-1.5 rounded text-xs"
+                              value={lcInputs['iinv_note'] || ''}
+                              onChange={e => setLcInputs({ ...lcInputs, iinv_note: e.target.value })}
+                            />
+                          </div>
+                          <button
+                            className="bg-[#B8862E] hover:bg-[#a07425] text-white px-4 py-1.5 rounded font-semibold text-xs"
+                            onClick={() => {
+                              const val = Number(lcInputs['iinv_value']) || 0;
+                              if (val <= 0) { alert('Enter valid billing value.'); return; }
+                              submitStageTransaction(selectedLcPo.id, 'install-invoice', {
+                                value: val,
+                                date: lcInputs['iinv_date'] || todayISO(),
+                                dueDate: lcInputs['iinv_dueDate'] || addDays(lcInputs['iinv_date'] || todayISO(), selectedLcPo.creditDays || 30),
+                                note: lcInputs['iinv_note'] || ''
+                              });
+                            }}
+                          >
+                            + Generate Installation Invoice
+                          </button>
+                        </div>
+
+                        <div className="space-y-2 pt-4 border-t">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Recorded Installation Invoices</div>
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
+                              <tr>
+                                <th className="p-2">Date</th>
+                                <th className="p-2 font-mono">Due Date</th>
+                                <th className="p-2 text-right">Value</th>
+                                <th className="p-2">Note</th>
+                                <th className="p-2 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#D8CFB8]">
+                              {selectedLcCalc?.lc.installationInvoices.length === 0 ? (
+                                <tr><td colSpan={5} className="p-3 text-center text-gray-500">No installation invoices generated yet.</td></tr>
+                              ) : (
+                                selectedLcCalc?.lc.installationInvoices.map(r => (
+                                  <tr key={r.id}>
+                                    <td className="p-2 font-mono">{r.date}</td>
+                                    <td className="p-2 font-mono">{r.dueDate || '—'}</td>
+                                    <td className="p-2 font-mono text-right font-bold text-[#1B2A41]">{fmt(r.value)}</td>
+                                    <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
+                                    <td className="p-2 text-right space-x-2">
+                                      <button className="text-[#1B2A41] font-semibold text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, 'installationInvoices', r)}>Edit</button>
+                                      <button className="text-[#A9432F] font-semibold text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, 'installationInvoices', r.id)}>Del</button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 7: Retention */}
+                    {activeStageTab === 'lcs-retention' && (
+                      <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
+                        <h4 className="font-serif font-semibold text-base">7 · Retention Period & Clearance</h4>
+                        <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded">
+                          <div>Retention Target: <b>{fmt(selectedLcCalc?.retentionTargetValue)}</b></div>
+                          <div>Period Duration: <b>{selectedLcCalc?.retention.periodMonths || selectedLcPo.retentionMonths || 12} months</b></div>
+                          <div>Status: <b className={selectedLcCalc?.retention.released ? 'text-[#3F6E4E]' : selectedLcCalc?.retention.started ? 'text-[#B8862E]' : 'text-gray-500'}>
+                            {selectedLcCalc?.retention.released ? 'Released' : selectedLcCalc?.retention.started ? 'Active (Held)' : 'Pending Contract Completion'}
+                          </b></div>
+                          {selectedLcCalc?.retention.releaseDate && <div>Due Release Date: <b>{selectedLcCalc.retention.releaseDate}</b></div>}
+                        </div>
+
+                        <div className="flex items-center gap-3 pt-2">
+                          {selectedLcCalc?.retention.started && !selectedLcCalc?.retention.released && (
+                            <button
+                              className="bg-[#3F6E4E] hover:bg-[#2e5239] text-white px-4 py-2 rounded font-semibold text-xs transition-colors"
+                              onClick={() => submitStageTransaction(selectedLcPo.id, 'retention-release', {})}
+                            >
+                              ✓ Release Retention Amount ({fmt(selectedLcCalc?.retention.amount)})
+                            </button>
+                          )}
+                          {!selectedLcCalc?.retention.started && (
+                            <p className="text-xs text-[#3A4A63]">Retention period automatically activates when all dispatch, invoicing, and installation conditions are fulfilled.</p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1103,7 +1736,7 @@ export default function ClientPoPage() {
                                 <th className="p-1">Date</th>
                                 <th className="p-1">Type</th>
                                 <th className="p-1 text-right">Amount</th>
-                                <th className="p-1 text-right"></th>
+                                <th className="p-1 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-white/10">
@@ -1115,8 +1748,9 @@ export default function ClientPoPage() {
                                   <td className="p-1.5 font-mono">{r.date}</td>
                                   <td className="p-1.5"><span className="bg-[#B8862E]/20 text-[#E4C583] px-2 py-0.5 rounded text-[10px]">{r.against}</span></td>
                                   <td className="p-1.5 font-mono text-right font-bold text-white">{fmt(r.amount)}</td>
-                                  <td className="p-1.5 text-right">
-                                    <button className="text-red-400 text-[11px]" onClick={() => submitDeleteEntry(selectedLcPo.id, r.srcArr, r.id)}>Del</button>
+                                  <td className="p-1.5 text-right space-x-2">
+                                    <button className="text-[#E4C583] text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, r.srcArr, r)}>Edit</button>
+                                    <button className="text-red-400 text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, r.srcArr, r.id)}>Del</button>
                                   </td>
                                 </tr>
                               ))}
@@ -2127,6 +2761,151 @@ export default function ClientPoPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button className="px-3 py-1.5 border border-[#1B2A41] text-xs rounded" onClick={() => setShowUomModal(false)}>Cancel</button>
               <button className="px-3 py-1.5 bg-[#B8862E] text-white text-xs rounded font-semibold" onClick={handleSaveUom}>Save UOM</button>
+            </div>
+          </div>
+        </div>
+      {/* EDIT ENTRY MODAL */}
+      {showEditEntryModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#FFFDF8] border-2 border-[#B8862E] rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-[#D8CFB8] pb-3">
+              <h3 className="font-serif font-bold text-base text-[#1B2A41]">Edit Transaction Entry</h3>
+              <button className="text-gray-500 hover:text-black font-bold text-lg" onClick={() => setShowEditEntryModal(false)}>✕</button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  className="w-full bg-white border border-[#D8CFB8] px-3 py-1.5 rounded font-mono"
+                  value={editFormDate}
+                  onChange={e => setEditFormDate(e.target.value)}
+                />
+              </div>
+
+              {editFormDueDate !== '' && (
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    className="w-full bg-white border border-[#D8CFB8] px-3 py-1.5 rounded font-mono"
+                    value={editFormDueDate}
+                    onChange={e => setEditFormDueDate(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {editFormAmount !== '' && (
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">Amount (₹)</label>
+                  <input
+                    type="number"
+                    className="w-full bg-white border border-[#D8CFB8] px-3 py-1.5 rounded font-mono"
+                    value={editFormAmount}
+                    onChange={e => setEditFormAmount(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {editFormQty !== '' && (
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    className="w-full bg-white border border-[#D8CFB8] px-3 py-1.5 rounded font-mono"
+                    value={editFormQty}
+                    onChange={e => setEditFormQty(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {editFormValue !== '' && (
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">Value (₹)</label>
+                  <input
+                    type="number"
+                    className="w-full bg-white border border-[#D8CFB8] px-3 py-1.5 rounded font-mono"
+                    value={editFormValue}
+                    onChange={e => setEditFormValue(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {editFormType !== '' && (
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">Payment Against Type</label>
+                  <select
+                    className="w-full bg-white border border-[#D8CFB8] px-3 py-1.5 rounded"
+                    value={editFormType}
+                    onChange={e => setEditFormType(e.target.value)}
+                  >
+                    <option value="advance">Against Advance</option>
+                    <option value="dispatch">Against Dispatch</option>
+                    <option value="installation">Against Installation</option>
+                    <option value="retention">Against Retention</option>
+                  </select>
+                </div>
+              )}
+
+              {editFormRef !== '' && (
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">Ref / Cheque / UTR</label>
+                  <input
+                    type="text"
+                    className="w-full bg-white border border-[#D8CFB8] px-3 py-1.5 rounded font-mono"
+                    value={editFormRef}
+                    onChange={e => setEditFormRef(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">Note / Batch</label>
+                <input
+                  type="text"
+                  className="w-full bg-white border border-[#D8CFB8] px-3 py-1.5 rounded"
+                  value={editFormNote}
+                  onChange={e => setEditFormNote(e.target.value)}
+                />
+              </div>
+
+              {editFormAllocations.length > 0 && (
+                <div className="space-y-2 pt-2 border-t">
+                  <label className="block font-semibold text-gray-700">Item Allocations</label>
+                  {editFormAllocations.map((alloc, idx) => (
+                    <div key={alloc.itemIndex} className="flex items-center justify-between gap-2 p-2 bg-[#F6F2E9] rounded">
+                      <span className="font-semibold text-gray-800 flex-1">{alloc.desc}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-20 bg-white border border-[#D8CFB8] px-2 py-1 rounded text-right font-mono"
+                        value={alloc.qty}
+                        onChange={e => {
+                          const newArr = [...editFormAllocations];
+                          newArr[idx].qty = e.target.value;
+                          setEditFormAllocations(newArr);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-4 border-t">
+              <button
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded font-semibold"
+                onClick={() => setShowEditEntryModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 bg-[#B8862E] hover:bg-[#a07425] text-white py-2 rounded font-semibold"
+                onClick={handleSaveEditEntry}
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
