@@ -488,43 +488,86 @@ export function computeLifecycle(po: ClientPoGraph) {
     }
   });
 
-  let currentStage = 'Stage 1 · Advance Pending';
-  if (advanceRatio >= 0.99 && totalProductionQty === 0) currentStage = 'Stage 2 · Production Ready';
-  else if (totalProductionQty > 0 && totalDispatchedQty < totalProductionQty) currentStage = 'Stage 3 · Dispatching';
-  else if (totalDispatchedQty > 0 && totalInvoiceValue < totalDispatchedValue) currentStage = 'Stage 4 · Billing Incomplete';
-  else if (totalInvoiceValue >= totalDispatchedValue && outstandingAmount > 1.0) currentStage = 'Stage 4 · Payment Collection';
-  else if (installedQty < totalDispatchedQty) currentStage = 'Stage 5 · Installation';
-  else if (installBillingApplicable && installationOutstanding > 1.0) currentStage = 'Stage 6 · Installation Payment';
-  else if (completionConditionsMet && retentionTargetValue > 0 && !retention.released) currentStage = 'Stage 7 · Retention Period';
-  else if (retention.released || (completionConditionsMet && retentionTargetValue === 0)) currentStage = 'Stage 8 · Contract Completed';
+  const retentionEligibleValue = advanceTargetValue > 0 ? (totalAdvanceReceived / advanceTargetValue) * retentionTargetValue : 0;
+  const retentionPaymentsReceived = customerPayments.filter(p => p.type === 'retention').reduce((s, p) => s + (p.amount || 0), 0);
+  const retentionDueAmount = retention.started ? retention.amount : retentionTargetValue;
+  const retentionOutstanding = Math.max(0, retentionDueAmount - retentionPaymentsReceived);
 
-  const notif: { level: 'info' | 'good' | 'warn' | 'danger'; text: string }[] = [];
+  const installInvoiceAging = (lc.installationInvoices || []).map((inv: any) => {
+    const invVal = inv.value || 0;
+    const paid = Math.min(invVal, manualInstallationPayments);
+    const outstanding = Math.max(0, invVal - paid);
+    const dueDate = inv.dueDate || addDays(inv.date, creditDays);
+    const ovDays = daysBetween(dueDate, todayISO());
+    return { ...inv, paid, outstanding, dueDate, overdueDays: ovDays > 0 ? ovDays : 0 };
+  });
 
-  if (pendingAdvance > 0) {
-    notif.push({ level: 'warn', text: `Advance Outstanding: ${fmt(pendingAdvance)}. Production capacity locked to ${Math.round(advanceRatio * 100)}%.` });
-  } else {
-    notif.push({ level: 'good', text: `Full Advance Received (${fmt(totalAdvanceReceived)}). Production unlocked at 100%.` });
-  }
+  // ─── Stage Label (Exact Match to Prototype) ────────────────────────────────
+  let currentStage = 'PO Released';
+  if (totalAdvanceReceived > 0) currentStage = pendingAdvance > 0.5 ? 'Advance in Progress' : 'Advance Received';
+  if (totalProductionValue > 0) currentStage = 'Production in Progress';
+  if (readyForDispatchValue > 0.5 && totalDispatchedValue <= 0.5) currentStage = 'Ready for Dispatch';
+  if (totalDispatchedValue > 0) currentStage = 'Dispatch in Progress';
+  if (totalDispatchedValue >= totalPOValue - 0.5 && totalPOValue > 0) currentStage = 'Fully Dispatched';
+  if (totalInvoiceValue > 0) currentStage = 'Dispatch Invoicing';
+  if (totalInvoiceValue > 0 && outstandingAmount > 0.5) currentStage = 'Dispatch Payment Pending';
+  if (totalInvoiceValue > 0 && outstandingAmount <= 0.5) currentStage = 'Dispatch Paid';
+  if (installedQty > 0) currentStage = 'Installation in Progress';
+  if (totalDispatchedQty > 0 && installedQty >= totalDispatchedQty) currentStage = 'Fully Installed';
+  if (installBillingApplicable && manualInstallationBilling > 0) currentStage = 'Installation Invoicing';
+  if (installBillingApplicable && manualInstallationBilling > 0 && installationOutstanding > 0.5) currentStage = 'Installation Payment Pending';
+  if (installBillingApplicable && manualInstallationBilling > 0 && installationOutstanding <= 0.5) currentStage = 'Installation Paid';
+  if (completionConditionsMet && retentionTargetValue > 0 && !retention.released) currentStage = 'Retention Period';
+  if (retention.released) currentStage = 'Completed';
 
-  if (readyForDispatchQty > 0) {
-    notif.push({ level: 'info', text: `${readyForDispatchQty} units (${fmt(readyForDispatchValue)}) ready for dispatch at factory.` });
-  }
+  // ─── Notifications (Exact Match to Prototype) ──────────────────────────────
+  const notif: { level: 'info' | 'good' | 'warn' | 'danger'; text: string; category?: string }[] = [];
+  const push = (level: 'info' | 'good' | 'warn' | 'danger', text: string, category?: string) => notif.push({ level, text, category });
 
-  if (pendingBillingValue > 0) {
-    notif.push({ level: 'warn', text: `Unbilled Dispatch: ${fmt(pendingBillingValue)} across ${pendingBillingQty} units.` });
-  }
+  // Step 1: Advance
+  if (advanceTargetValue > 0 && totalAdvanceReceived === 0) push('warn', 'Advance Payment is Pending.', 'advance');
+  else if (pendingAdvance > 0.5) push('warn', `Advance partially received. Pending: ${fmt(pendingAdvance)}.`, 'advance');
 
-  if (outstandingAmount > 0) {
-    notif.push({ level: 'danger', text: `Dispatch Payment Receivable: ${fmt(outstandingAmount)}.` });
-  }
+  // Step 2: Production
+  if (remainingProductionCapacity > 0.5) push('info', `${fmt(remainingProductionCapacity)} eligible for production based on advance received.`, 'production');
+  if (productionAdvancePending > 0.5) push('warn', `Production value (${fmt(totalProductionValue)}) exceeds advance received (${fmt(totalAdvanceReceived)}) by ${fmt(productionAdvancePending)} — additional advance required.`, 'production');
+  if (totalProductionValue >= totalPOValue - 0.5 && totalPOValue > 0) push('info', 'Production has reached the full PO value.', 'production');
 
-  if (retention.started) {
-    if (retention.released) {
-      notif.push({ level: 'good', text: `Retention Released: ${fmt(retention.amount)} on ${retention.releasedDate || 'date'}.` });
-    } else {
-      notif.push({ level: 'warn', text: `Retention Period Active: ${fmt(retention.amount)} held until ${retention.releaseDate || 'due date'}.` });
+  // Step 3: Dispatch
+  if (readyForDispatchQty > 0.5) push('good', `${readyForDispatchQty} unit(s) ready for dispatch.`, 'dispatch');
+  if (totalDispatchedValue >= totalPOValue - 0.5 && totalPOValue > 0) push('good', 'Complete PO has been dispatched.', 'dispatch');
+
+  // Step 4: Dispatch Invoice
+  if (pendingBillingValue > 0.5) push('warn', `Dispatch invoice pending for ${fmt(pendingBillingValue)}.`, 'dispatch-invoice');
+
+  // Step 5: Customer Payment
+  invoiceAging.forEach(inv => {
+    if (inv.outstanding > 0.5) {
+      if (inv.overdueDays > 0) push('danger', `Invoice ${(inv.id || '').slice(-5)} overdue by ${inv.overdueDays} day(s) — ${fmt(inv.outstanding)}.`, 'dispatch-payment');
+      else push('warn', `Payment due for invoice ${inv.dueDate} — ${fmt(inv.outstanding)}.`, 'dispatch-payment');
     }
+  });
+  if (totalInvoiceValue > 0 && outstandingAmount <= 0.5) push('good', 'All dispatch invoices paid in full.', 'dispatch-payment');
+
+  // Step 6: Installation
+  if (remainingInstallQty > 0.5) push('warn', `Installation Pending — ${remainingInstallQty} unit(s).`, 'installation');
+  if (totalDispatchedQty > 0 && installedQty >= totalDispatchedQty) push('good', 'All dispatched material has been installed.', 'installation');
+
+  // Step 7: Installation Invoice
+  if (installBillingApplicable && unbilledAccrued > 0.5) push('warn', `Installation Invoice Due — ${fmt(unbilledAccrued)} not yet formally invoiced.`, 'install-invoice');
+  installInvoiceAging.forEach((inv: any) => {
+    if (inv.outstanding > 0.5) {
+      if (inv.overdueDays > 0) push('danger', `Installation invoice ${(inv.id || '').slice(-5)} overdue by ${inv.overdueDays} day(s) — ${fmt(inv.outstanding)}.`, 'install-payment');
+      else push('warn', `Installation Payment Due — ${fmt(inv.outstanding)}, due ${inv.dueDate}.`, 'install-payment');
+    }
+  });
+  if (installBillingApplicable && manualInstallationBilling > 0 && installationOutstanding <= 0.5) push('good', 'Installation Payment Completed.', 'install-payment');
+
+  // Step 8: Retention
+  if (retention.started && !retention.released) {
+    push('info', `Retention started — release due ${retention.releaseDate || 'due date'}.`, 'retention');
   }
+  if (retention.released) push('good', `Retention Released on ${retention.releasedDate || 'date'}.`, 'retention');
 
   return {
     stage: currentStage,
@@ -565,8 +608,14 @@ export function computeLifecycle(po: ClientPoGraph) {
     installationOutstanding,
     itemStats,
     invoiceAging,
+    installInvoiceAging,
     completionConditionsMet,
     retentionTargetValue,
+    retentionMilestoneValueOnPO: retentionTargetValue,
+    retentionEligibleValue,
+    retentionPaymentsReceived,
+    retentionDueAmount,
+    retentionOutstanding,
     retention,
     notif,
     lc

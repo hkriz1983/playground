@@ -1891,22 +1891,26 @@ export default function ClientPoPage() {
                             <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
                               <tr>
                                 <th className="p-2">Date</th>
-                                <th className="p-2 font-mono">Due Date</th>
+                                <th className="p-2 text-right">Qty</th>
                                 <th className="p-2 text-right">Value</th>
-                                <th className="p-2">Note</th>
+                                <th className="p-2 font-mono">Due</th>
+                                <th className="p-2 text-right">Outstanding</th>
+                                <th className="p-2">Timeline</th>
                                 <th className="p-2 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-[#D8CFB8]">
-                              {selectedLcCalc?.lc.installationInvoices.length === 0 ? (
-                                <tr><td colSpan={5} className="p-3 text-center text-gray-500">No installation invoices generated yet.</td></tr>
+                              {selectedLcCalc?.lc?.installationInvoices?.length === 0 ? (
+                                <tr><td colSpan={7} className="p-3 text-center text-gray-500">No installation invoices generated yet.</td></tr>
                               ) : (
-                                selectedLcCalc?.lc.installationInvoices.map(r => (
+                                (selectedLcCalc?.installInvoiceAging || selectedLcCalc?.lc?.installationInvoices || []).map((r: any) => (
                                   <tr key={r.id}>
                                     <td className="p-2 font-mono">{r.date}</td>
-                                    <td className="p-2 font-mono">{r.dueDate || '—'}</td>
+                                    <td className="p-2 font-mono text-right">{r.qty || '—'}</td>
                                     <td className="p-2 font-mono text-right font-bold text-[#1B2A41]">{fmt(r.value)}</td>
-                                    <td className="p-2 text-[#3A4A63]">{r.note || '—'}</td>
+                                    <td className="p-2 font-mono">{r.dueDate || '—'}</td>
+                                    <td className="p-2 font-mono text-right font-bold text-[#A9432F]">{r.outstanding > 0.5 ? fmt(r.outstanding) : 'Paid'}</td>
+                                    <td className="p-2 text-[11px]">{r.timeline ? `${r.timeline.status} ${r.timeline.days ? '(' + r.timeline.days + 'd)' : ''}` : '—'}</td>
                                     <td className="p-2 text-right space-x-2">
                                       <button className="text-[#1B2A41] font-semibold text-[11px] hover:underline" onClick={() => openEditEntryModal(selectedLcPo.id, 'installationInvoices', r)}>Edit</button>
                                       <button className="text-[#A9432F] font-semibold text-[11px] hover:underline" onClick={() => submitDeleteEntry(selectedLcPo.id, 'installationInvoices', r.id)}>Del</button>
@@ -1924,7 +1928,7 @@ export default function ClientPoPage() {
                     {activeStageTab === 'lcs-retention' && (
                       <div className="bg-[#FFFDF8] border border-[#D8CFB8] p-5 rounded-lg shadow-sm space-y-4">
                         <h4 className="font-serif font-semibold text-base text-[#1B2A41] flex items-center justify-between">
-                          <span>7 · Retention</span>
+                          <span>8 · Retention</span>
                           {selectedLcCalc?.retention.started && !selectedLcCalc?.retention.released && (
                             <button
                               className="bg-[#3F6E4E] hover:bg-[#2e5239] text-white px-3 py-1 rounded text-xs font-semibold"
@@ -1934,13 +1938,48 @@ export default function ClientPoPage() {
                             </button>
                           )}
                         </h4>
+
                         <div className="flex flex-wrap gap-4 text-xs font-mono bg-[#F6F2E9] p-3 rounded border border-[#D8CFB8]">
-                          <div>Retention Target: <b>{fmt(selectedLcCalc?.retentionTargetValue)}</b></div>
-                          <div>Retention Due: <b>{fmt(selectedLcCalc?.retention.started ? selectedLcCalc.retention.amount : selectedLcCalc?.retentionTargetValue)}</b></div>
-                          <div>Status: <b className={selectedLcCalc?.retention.released ? 'text-[#3F6E4E]' : selectedLcCalc?.retention.started ? 'text-[#B8862E]' : 'text-gray-500'}>
-                            {selectedLcCalc?.retention.released ? 'Released' : selectedLcCalc?.retention.started ? 'Active (Held)' : 'Pending Contract Completion'}
-                          </b></div>
-                          {selectedLcCalc?.retention.releaseDate && <div>Release Due Date: <b>{selectedLcCalc.retention.releaseDate}</b></div>}
+                          <div>Eligible per payment milestone: <b>{fmt(selectedLcCalc?.retentionEligibleValue)}</b></div>
+                          <div>Retention due: <b>{fmt(selectedLcCalc?.retentionDueAmount)}</b></div>
+                          <div>Retention received: <b>{fmt(selectedLcCalc?.retentionPaymentsReceived)}</b></div>
+                          <div>Outstanding retention: <b className="text-[#A9432F]">{fmt(selectedLcCalc?.retentionOutstanding)}</b></div>
+                        </div>
+
+                        {(selectedLcCalc?.retentionMilestoneValueOnPO || 0) > 0 && (
+                          <div className="text-[11px] text-gray-600 italic bg-[#F6F2E9]/60 p-2.5 rounded border border-[#D8CFB8]">
+                            Eligible per payment milestone = (Advance Received ÷ Required Advance) × Retention Value = ({fmt(selectedLcCalc?.totalAdvanceReceived)} ÷ {fmt(selectedLcCalc?.advanceTargetValue)}) × {fmt(selectedLcCalc?.retentionMilestoneValueOnPO)} = <b>{Math.round((selectedLcCalc?.advanceRatio || 0) * 1000) / 10}%</b> unlocked so far. Retention actually held is calculated against dispatched value once the stage starts.
+                          </div>
+                        )}
+
+                        <div className="text-xs text-[#3A4A63] bg-[#F6F2E9]/40 p-3 rounded border border-[#D8CFB8]">
+                          Retention starts automatically once dispatch is invoiced and paid, and installation and installation billing are complete, and the retention period elapses.
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-[#D8CFB8]">
+                          <div className="text-xs font-semibold uppercase text-[#3A4A63]">Retention Payments (via Customer Payment)</div>
+                          <table className="w-full text-left text-xs border border-[#D8CFB8] rounded overflow-hidden">
+                            <thead className="bg-[#EDE6D6] font-semibold text-[#3A4A63]">
+                              <tr>
+                                <th className="p-2">Date</th>
+                                <th className="p-2 text-right">Amount</th>
+                                <th className="p-2">Note</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#D8CFB8]">
+                              {selectedLcCalc?.lc.customerPayments.filter((p: any) => p.type === 'retention').length === 0 ? (
+                                <tr><td colSpan={3} className="p-3 text-center text-gray-500">No entries recorded yet.</td></tr>
+                              ) : (
+                                selectedLcCalc?.lc.customerPayments.filter((p: any) => p.type === 'retention').map((p: any) => (
+                                  <tr key={p.id}>
+                                    <td className="p-2 font-mono">{p.date}</td>
+                                    <td className="p-2 font-mono text-right font-bold text-[#3F6E4E]">{fmt(p.amount)}</td>
+                                    <td className="p-2 text-[#3A4A63]">{p.note || '—'}</td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}
